@@ -1,47 +1,125 @@
 # CinemaVerse
 
-Barebones gamer-style social film logger. Search TMDB, post watch status, browse the squad feed.
+A social film log with a gamer HUD look. Search TMDB, mark a film **watching / completed / queued / dropped**, rate it out of ten, add a short take, and it lands on your watchlist, your public profile and the shared squad feed. "For you" recommends what to watch next, using OpenRouter when a key is set and a built-in taste-match engine when it isn't.
 
-**Live:** [cinemaverse-solo.netlify.app](https://cinemaverse-solo.netlify.app)
+**Live (previous version):** [cinemaverse-solo.netlify.app](https://cinemaverse-solo.netlify.app). The `revamp` branch has not been deployed yet.
+
+| Home | Feed | Public profile |
+|---|---|---|
+| ![Home](revamp-shots/01-home.png) | ![Feed](revamp-shots/02-feed.png) | ![Profile](revamp-shots/03-profile.png) |
+| **Log a film** | **Watchlist** | **For you** |
+| ![Log](revamp-shots/04-log-composer.png) | ![Watchlist](revamp-shots/05-watchlist.png) | ![For you](revamp-shots/06-for-you.png) |
+
+Phone (390 px): [revamp-shots/07-phone-feed.png](revamp-shots/07-phone-feed.png)
 
 ## Stack
 
-- Vite + React + Tailwind
-- TMDB via Netlify Function (`TMDB_API_KEY`)
-- Auth + feed: localStorage demo mode, or Supabase for production shared feed
+- **Client:** React 18 + Vite 6 + Tailwind 3 + React Router (JSX).
+- **API:** a single framework-free `(Request) => Response` handler in TypeScript (`server/`). It runs as a Netlify Function (`netlify/functions/api.mts`, path `/api/*`) in production and inside the Vite dev server locally, so there's one code path.
+- **Database:** PostgreSQL. With `DATABASE_URL` set it uses `pg` (Neon, Supabase, RDS, local Postgres). Without it, it runs [PGlite](https://pglite.dev), which is Postgres 18 compiled to WASM, inside the Node process, so dev and tests need no Docker and no install. The SQL is the same for both.
+- **Validation:** zod at every API boundary. **Tests:** Vitest (API, against a real in-memory Postgres) and Playwright (browser smoke).
+- **External services, both optional:** TMDB (film data, proxied so the key stays on the server) and OpenRouter (AI picks).
 
-## Features
+## Run it locally
 
-- Hero landing + responsive navbar (Sign In / Sign Up)
-- TMDB trending + search
-- Log status: watching, completed, queued, dropped
-- Social feed + player profile
-
-## Local dev
+Needs Node 22.18 or newer (scripts use Node's built-in TypeScript support).
 
 ```bash
 npm install
-cp .env.example .env
-# Add VITE_TMDB_API_KEY for local TMDB (get one at themoviedb.org)
-npm run dev
+npm run dev          # http://localhost:4410
 ```
 
-## Netlify deploy
+That's all. On first start the embedded database is created in `.data/pglite`, migrated, and seeded with the demo community. No keys are required:
 
-1. Connect repo to Netlify
-2. **Framework preset:** None (or Vite) — **not** Next.js
-3. Build: `npm run build` · Publish: `dist`
-4. If deploy still picks Next.js: Site settings → Build & deploy → **Clear build cache**, then redeploy
-5. Env vars:
-   - `TMDB_API_KEY` — required for movie data
-   - `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` — optional, enables shared auth/feed
+- With no `TMDB_API_KEY`, trending and search use a bundled catalogue of 40 real TMDB films, labelled "Offline catalog" in the UI. To use live TMDB data without a key of your own, set `TMDB_UPSTREAM=https://cinemaverse-solo.netlify.app` and requests go through that deployment's proxy.
+- With no `OPENROUTER_API_KEY`, "For you" uses taste-match and says so on the page.
 
-Without Supabase, sign-up works in-browser (demo mode) — great for portfolio preview; add Supabase for real multi-user feed.
+Copy `.env.example` to `.env` to set any of these. `.env` is git-ignored.
 
-## Supabase setup (optional)
+### Demo accounts
 
-Run `supabase/schema.sql` in the SQL editor, then disable email confirmation under Authentication → Providers → Email for fastest onboarding.
+| Who | How | Notes |
+|---|---|---|
+| **Guest** | "Try the demo" button (home, feed, sign-in page) | Instant account with no email or password. Expires after 24 hours, along with its posts. |
+| **Six demo players** (`nova`, `pixel_rat`, `cinema_ghost`, `reel_ronin`, `kaiju_kid`, `velvet_static`) | Seeded | Fictional and labelled **DEMO** everywhere. They have no password and can't be signed into. Their logs fill the feed, profiles and the recommendation pool. |
+| **Your own account** | Sign up | Username, email, password (8+ characters). |
+| **Admin** | Sign up with an email listed in `ADMIN_EMAILS` | Can delete any feed post. Everyone else can delete only their own. |
 
-## Scope
+### Scripts
 
-Intentionally minimal: film status logging + sharing only. No payments, AI, or TV episode tracking in this prototype.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Vite + API + embedded Postgres on port 4410 |
+| `npm run build` | Production client build into `dist/` |
+| `npm run typecheck` | `tsc` over the API, shared code, scripts and tests |
+| `npm test` | 40 Vitest API tests on an in-memory Postgres |
+| `npm run test:e2e` | Playwright smoke test. First run on a new machine: `npx playwright install chromium` |
+| `npm run db:migrate` / `db:seed` | Apply migrations / add the demo community (uses `DATABASE_URL` if set) |
+| `npm run db:reseed` | Re-time the demo community to "now" so the feed looks fresh |
+| `npm run db:reset` | Embedded DB only: wipe and recreate |
+
+## What needs real keys or accounts
+
+| Variable | Without it | With it |
+|---|---|---|
+| `DATABASE_URL` | Local: embedded DB in `.data/pglite`. **On Netlify: an in-memory sandbox per function instance.** The seeded demo data always shows, but signups and logs don't persist and may not carry across instances. A banner says so. | Real persistence. Any Postgres works (Neon and Supabase have free tiers). Migrations and the demo seed run automatically on first request. |
+| `TMDB_API_KEY` | Offline catalogue of 40 films | Live trending and full search. Set it in Netlify site env (server-side; never `VITE_`). |
+| `OPENROUTER_API_KEY` (+ optional `OPENROUTER_MODEL`, default `openai/gpt-4o-mini`) | Taste-match recommendations | AI picks with a reason for each, matched to TMDB posters. Falls back to taste-match, with a notice, if the call fails, times out (15 s) or returns junk. |
+| `ADMIN_EMAILS` | No admins | Listed emails get the admin role at sign-up |
+
+## API
+
+Every route declares its access level, and the router enforces it before the handler runs. All state-changing requests must send JSON (form posts are rejected with 415) and, when the browser sends an `Origin` header, it must match the host (403 otherwise).
+
+| Method & path | Access | Purpose |
+|---|---|---|
+| `GET /api/health` | public | DB kind, sandbox flag, which keys are configured |
+| `GET /api/auth/me` | public | Current user or `null` |
+| `POST /api/auth/signup` · `/login` · `/demo` · `/logout` | public (rate-limited) | Session cookie auth |
+| `GET /api/feed?status=&limit=&cursor=` | public | Keyset-paginated activity feed |
+| `POST` / `DELETE /api/feed/:id/like` | user | Like / unlike (idempotent) |
+| `DELETE /api/feed/:id` | owner or admin | Remove a post |
+| `GET /api/watchlist?status=` | user | Your entries + per-status counts |
+| `PUT /api/watchlist/:tmdbId` | user | Log or update a film (posts to the feed if something changed) |
+| `PATCH` / `DELETE /api/watchlist/:tmdbId` | user | Edit status/rating/take, or remove. Scoped to your own rows. |
+| `GET /api/users/:username` | public | Profile, stats, shelves, recent activity (never email, role or ids) |
+| `PATCH /api/users/me` | user | Edit display name / bio |
+| `GET /api/recommendations` | user | `{ source: 'openrouter' \| 'taste-match', notice, items[] }` |
+| `GET /.netlify/functions/tmdb?path=` | public | TMDB proxy, allow-listed to the read-only endpoints the app uses |
+
+### Security notes
+
+- Passwords: scrypt (N=16384) with a per-user salt. Login does the same work for unknown users, so response timing doesn't reveal which accounts exist.
+- Sessions: 32 random bytes in an `HttpOnly; SameSite=Lax` cookie (`Secure` over HTTPS). Only the SHA-256 of the token is stored. Logout deletes the row.
+- Auth routes are rate-limited per IP and per identifier. The limit is in-memory, per instance.
+- Watchlist queries are always scoped by the session user's id, and tests cover cross-user access.
+- The TMDB proxy used to forward any path the browser asked for, using the site's key. It now allows only an explicit list of endpoints and parameters.
+
+## Deploying to Netlify (not done yet)
+
+1. Add env vars in Site settings: `TMDB_API_KEY` (already set on the current site), and ideally `DATABASE_URL`. Optional: `OPENROUTER_API_KEY`, `ADMIN_EMAILS`.
+2. Deploy the `revamp` branch as a **deploy preview** first. `netlify.toml` sets Node 22, the esbuild bundler, and ships `@electric-sql/pglite` and `pg` as external modules.
+3. On the preview, check that `/api/health` returns `ok: true` and that `/api/*` reaches the function rather than the SPA fallback.
+
+Not yet verified on Netlify itself: the `/api/*` function path working alongside the `/*` SPA redirect, and PGlite's WASM loading inside a Netlify Function (only needed when `DATABASE_URL` is unset). Everything else was verified locally on Windows 11 / Node 24.
+
+## Layout
+
+```
+server/            API: app.ts (router + handler), auth, validation, routes/, services/recommend.ts, tmdb.ts
+server/db/         driver adapter (pg | PGlite), migrations, demo seed
+shared/            constants + offline film catalogue, imported by both client and server
+netlify/functions/ api.mts (/api/*), tmdb.mts (TMDB proxy)
+src/               React client: pages/, components/, context/, hooks/, lib/
+tests/api/         Vitest API tests        tests/e2e/   Playwright smoke test
+scripts/db.ts      migrate / seed / reseed / reset
+archive/wasp-v1/   the original Wasp + Prisma version, kept for reference (not built)
+```
+
+## Known shortcuts
+
+- Film metadata on a log (title, poster, genres) comes from the client. It is validated (including TMDB image-path format) but not re-fetched from TMDB on the server.
+- The rate limiter and the recommendation cache live in memory per instance.
+- Recommendations cover films only. TV tracking from the Wasp version is not carried over.
+
+Film data and images from [TMDB](https://www.themoviedb.org/). This product uses the TMDB API but is not endorsed or certified by TMDB.
