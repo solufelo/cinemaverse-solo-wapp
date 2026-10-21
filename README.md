@@ -9,8 +9,21 @@ A social film log with a gamer HUD look. Search TMDB, mark a film **watching / c
 | ![Home](revamp-shots/01-home.png) | ![Feed](revamp-shots/02-feed.png) | ![Profile](revamp-shots/03-profile.png) |
 | **Log a film** | **Watchlist** | **For you** |
 | ![Log](revamp-shots/04-log-composer.png) | ![Watchlist](revamp-shots/05-watchlist.png) | ![For you](revamp-shots/06-for-you.png) |
+| **Sign in** | **404** | |
+| ![Sign in](revamp-shots/07-sign-in.png) | ![404](revamp-shots/08-not-found.png) | |
 
-Phone (390 px): [revamp-shots/07-phone-feed.png](revamp-shots/07-phone-feed.png)
+Phone (390 px): [feed](revamp-shots/09-phone-feed.png) · [log composer sheet](revamp-shots/10-phone-log.png)
+
+## Design
+
+A HUD for a film log: the neon-on-void palette and Orbitron stay, but each is used for one job.
+
+- **Type.** Orbitron for display and numerals only (page titles, ranks, stats). Saira for reading. JetBrains Mono for HUD readouts: labels, timestamps, statuses, counts. All three are self-hosted latin subsets in `public/fonts` (85 KB together, preloaded), sizes follow a fluid `clamp()` scale in `src/index.css`.
+- **Colour has meaning.** Cyan is action and focus, and the four statuses keep their own colours (cyan watching, lime completed, pink queued, coral dropped) everywhere: poster base lines, chips, tabs, the profile split bar.
+- **Posters lead.** Feed entries, shelves, the watchlist, picks and the home rail are built around the poster. Corner brackets "lock on" to whatever you hover or select.
+- **Motion.** A boot screen until the app paints, a scan line and settle on every route change, scroll reveals, a crossfading hero and a live ticker. All of it is off under `prefers-reduced-motion`.
+- **Phone.** A thumb-reach tab bar with the logger in the middle, and the composer opens as a bottom sheet.
+- **States.** Loading skeletons match each layout; empty, error, no-results and 404 states share one framed design.
 
 ## Stack
 
@@ -52,8 +65,8 @@ Copy `.env.example` to `.env` to set any of these. `.env` is git-ignored.
 | `npm run dev` | Vite + API + embedded Postgres on port 4410 |
 | `npm run build` | Production client build into `dist/` |
 | `npm run typecheck` | `tsc` over the API, shared code, scripts and tests |
-| `npm test` | 40 Vitest API tests on an in-memory Postgres |
-| `npm run test:e2e` | Playwright smoke test. First run on a new machine: `npx playwright install chromium` |
+| `npm test` | 51 Vitest tests: 41 API tests on an in-memory Postgres, 10 client unit tests |
+| `npm run test:e2e` | 4 Playwright tests: the public flow, phone layout and composer sheet, the 404 and console errors. First run on a new machine: `npx playwright install chromium` |
 | `npm run db:migrate` / `db:seed` | Apply migrations / add the demo community (uses `DATABASE_URL` if set) |
 | `npm run db:reseed` | Re-time the demo community to "now" so the feed looks fresh |
 | `npm run db:reset` | Embedded DB only: wipe and recreate |
@@ -100,6 +113,7 @@ Every route declares its access level, and the router enforces it before the han
 1. Add env vars in Site settings: `TMDB_API_KEY` (already set on the current site), and ideally `DATABASE_URL`. Optional: `OPENROUTER_API_KEY`, `ADMIN_EMAILS`.
 2. Deploy the `revamp` branch as a **deploy preview** first. `netlify.toml` sets Node 22, the esbuild bundler, and ships `@electric-sql/pglite` and `pg` as external modules.
 3. On the preview, check that `/api/health` returns `ok: true` and that `/api/*` reaches the function rather than the SPA fallback.
+4. Link previews use `og:image` = `https://cinemaverse-solo.netlify.app/og.jpg` (in `index.html`). Change that URL if the site moves to another domain.
 
 Not yet verified on Netlify itself: the `/api/*` function path working alongside the `/*` SPA redirect, and PGlite's WASM loading inside a Netlify Function (only needed when `DATABASE_URL` is unset). Everything else was verified locally on Windows 11 / Node 24.
 
@@ -111,7 +125,7 @@ server/db/         driver adapter (pg | PGlite), migrations, demo seed
 shared/            constants + offline film catalogue, imported by both client and server
 netlify/functions/ api.mts (/api/*), tmdb.mts (TMDB proxy)
 src/               React client: pages/, components/, context/, hooks/, lib/
-tests/api/         Vitest API tests        tests/e2e/   Playwright smoke test
+tests/api/         Vitest API tests        tests/unit/  client unit tests        tests/e2e/   Playwright
 scripts/db.ts      migrate / seed / reseed / reset
 archive/wasp-v1/   the original Wasp + Prisma version, kept for reference (not built)
 ```

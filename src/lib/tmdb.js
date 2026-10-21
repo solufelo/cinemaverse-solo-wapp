@@ -1,5 +1,6 @@
 import { CATALOG } from '../../shared/catalog.ts'
 import { TMDB_GENRES } from '../../shared/constants.ts'
+import { getHealth } from './api'
 
 const IMG = 'https://image.tmdb.org/t/p/'
 
@@ -20,7 +21,17 @@ export function normalizeFilm(m) {
   }
 }
 
+/** False when the server says it has no TMDB key or upstream, so we skip a request that can only fail. */
+async function tmdbConfigured() {
+  try {
+    return (await getHealth()).tmdb !== false
+  } catch {
+    return true
+  }
+}
+
 async function proxy(path, params = {}, signal) {
+  if (!(await tmdbConfigured())) throw new Error('TMDB is not configured')
   const qs = new URLSearchParams({ path, ...params })
   const res = await fetch(`/.netlify/functions/tmdb?${qs}`, { signal })
   if (!res.ok) throw new Error(`TMDB proxy ${res.status}`)

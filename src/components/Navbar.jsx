@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Film, LogOut, Menu, Play, X, Zap } from 'lucide-react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { ListVideo, LogOut, Play, Plus, Radio, Sparkles, UserRound } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { Avatar } from './ui'
@@ -12,21 +12,29 @@ const links = [
   { to: '/for-you', label: 'For you' },
 ]
 
+/** The mark: a play glyph locked inside HUD corner brackets. Same drawing as the favicon. */
+export function Mark({ className = 'h-8 w-8' }) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+      <path d="M8 20V8h12M44 8h12v12M56 44v12H44M20 56H8V44" stroke="#00f5ff" strokeWidth="4" strokeLinecap="square" />
+      <path d="M25 20v24l19-12-19-12z" fill="#eef1f8" />
+      <rect x="46" y="14" width="6" height="6" fill="#ff2d95" />
+    </svg>
+  )
+}
+
 export function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-3" aria-label="CinemaVerse home">
-      <span className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-neon to-plasma shadow-neon">
-        <Film className="h-[18px] w-[18px] text-void" />
-        <Zap className="absolute -right-1 -top-1 h-3 w-3 fill-acid text-acid" />
-      </span>
-      <span className="font-display text-[17px] font-bold tracking-wide text-white">
-        CINEMA<span className="text-neon">VERSE</span>
+    <Link to="/" className="group flex items-center gap-2.5" aria-label="CinemaVerse home">
+      <Mark className="h-8 w-8 transition-transform duration-500 ease-out group-hover:rotate-90" />
+      <span className="font-display text-[15px] font-extrabold uppercase tracking-[0.04em] text-white">
+        Cinema<span className="text-neon">verse</span>
       </span>
     </Link>
   )
 }
 
-export function DemoButton({ className = 'btn-primary', children = 'Try the demo', to = '/log' }) {
+export function DemoButton({ className = 'btn-primary', children = 'Try the demo', to = '/log', icon = true }) {
   const { startDemo } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
@@ -49,7 +57,7 @@ export function DemoButton({ className = 'btn-primary', children = 'Try the demo
         }
       }}
     >
-      <Play className="h-4 w-4" />
+      {icon ? <Play className="h-3.5 w-3.5 fill-current" /> : null}
       {busy ? 'Starting…' : children}
     </button>
   )
@@ -57,52 +65,64 @@ export function DemoButton({ className = 'btn-primary', children = 'Try the demo
 
 export default function Navbar() {
   const { user, signOut, loading } = useAuth()
-  const [open, setOpen] = useState(false)
-  const location = useLocation()
   const navigate = useNavigate()
+  const [scrolled, setScrolled] = useState(false)
 
-  useEffect(() => setOpen(false), [location.pathname])
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const out = async () => {
     await signOut()
     navigate('/')
   }
 
-  const linkClass = ({ isActive }) =>
-    `rounded-md px-3.5 py-2 font-display text-[12px] uppercase tracking-[0.16em] transition ${
-      isActive ? 'bg-neon/10 text-neon' : 'text-slate-300 hover:bg-white/5 hover:text-white'
-    }`
-
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-void/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+    <header
+      className={`sticky top-0 z-50 border-b transition-colors duration-300 ${
+        scrolled ? 'border-white/[0.07] bg-void/80 backdrop-blur-xl' : 'border-transparent bg-void/40 backdrop-blur-md'
+      }`}
+    >
+      <div className="frame flex h-16 items-center justify-between gap-6">
         <Logo />
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav className="hidden h-full items-center gap-8 md:flex" aria-label="Main">
           {links.map((l) => (
-            <NavLink key={l.to} to={l.to} className={linkClass}>
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className={({ isActive }) =>
+                `relative flex h-full items-center font-mono text-[12px] uppercase tracking-[0.14em] transition after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:origin-left after:bg-neon after:transition-transform after:duration-300 ${
+                  isActive ? 'text-white after:scale-x-100' : 'text-muted after:scale-x-0 hover:text-white'
+                }`
+              }
+            >
               {l.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="hidden min-w-[180px] items-center justify-end gap-2 md:flex">
+        <div className="flex min-w-[9rem] items-center justify-end gap-2">
           {loading ? null : user ? (
             <>
               <Link
                 to={`/u/${user.username}`}
-                className="flex items-center gap-2 rounded-full border border-white/10 py-1 pl-1 pr-3 text-sm text-slate-200 transition hover:border-neon/40"
+                className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-1 text-sm text-slate-200 transition hover:bg-white/[0.05] sm:pr-3.5"
+                aria-label="Your profile"
               >
-                <Avatar user={user} size={28} />
-                <span className="max-w-[120px] truncate font-semibold">{user.displayName}</span>
+                <Avatar user={user} size={30} />
+                <span className="hidden max-w-[120px] truncate font-semibold sm:inline">{user.displayName}</span>
               </Link>
-              <button type="button" onClick={out} className="btn-quiet btn-sm" aria-label="Sign out">
-                <LogOut className="h-3.5 w-3.5" />
+              <button type="button" onClick={out} className="btn-icon hidden md:inline-flex" aria-label="Sign out" title="Sign out">
+                <LogOut className="h-4 w-4" />
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn-quiet btn-sm">
+              <Link to="/login" className="hidden px-3 font-mono text-[12px] uppercase tracking-[0.14em] text-muted transition hover:text-white sm:inline">
                 Sign in
               </Link>
               <Link to="/signup" className="btn-primary btn-sm">
@@ -111,51 +131,52 @@ export default function Navbar() {
             </>
           )}
         </div>
-
-        <button
-          type="button"
-          className="rounded-md p-2 text-white md:hidden"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-        >
-          {open ? <X /> : <Menu />}
-        </button>
       </div>
-
-      {open && (
-        <div className="border-t border-white/10 bg-panel/95 px-4 pb-5 pt-3 md:hidden">
-          <nav className="grid gap-1" aria-label="Mobile">
-            {links.map((l) => (
-              <NavLink key={l.to} to={l.to} className={linkClass}>
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="mt-3 border-t border-white/10 pt-4">
-            {user ? (
-              <div className="flex items-center justify-between gap-3">
-                <Link to={`/u/${user.username}`} className="flex items-center gap-2">
-                  <Avatar user={user} size={32} />
-                  <span className="font-semibold text-ink">{user.displayName}</span>
-                </Link>
-                <button type="button" onClick={out} className="btn-quiet btn-sm">
-                  <LogOut className="h-3.5 w-3.5" /> Sign out
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <Link to="/login" className="btn-quiet">
-                  Sign in
-                </Link>
-                <Link to="/signup" className="btn-primary">
-                  Sign up
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </header>
+  )
+}
+
+/** Phone navigation: a thumb-reach tab bar with the logger as the centre action. */
+export function TabBar() {
+  const { user } = useAuth()
+  const item = ({ isActive }) =>
+    `relative flex flex-col items-center justify-center gap-1 font-mono text-[9.5px] uppercase tracking-[0.12em] transition ${
+      isActive ? 'text-white before:absolute before:top-0 before:h-[2px] before:w-6 before:bg-neon' : 'text-muted'
+    }`
+  return (
+    <nav
+      aria-label="Tabs"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-void/90 backdrop-blur-xl md:hidden"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <div className="grid h-16 grid-cols-5">
+        <NavLink to="/feed" className={item}>
+          <Radio className="h-5 w-5" strokeWidth={1.75} />
+          Feed
+        </NavLink>
+        <NavLink to="/for-you" className={item}>
+          <Sparkles className="h-5 w-5" strokeWidth={1.75} />
+          For you
+        </NavLink>
+        <NavLink to="/log" className="flex items-center justify-center" aria-label="Log a film">
+          {({ isActive }) => (
+            <span
+              className={`flex h-11 w-14 items-center justify-center text-void transition active:scale-95 ${isActive ? 'bg-white' : 'bg-neon'}`}
+              style={{ clipPath: 'polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)' }}
+            >
+              <Plus className="h-6 w-6" strokeWidth={2.5} />
+            </span>
+          )}
+        </NavLink>
+        <NavLink to="/watchlist" className={item}>
+          <ListVideo className="h-5 w-5" strokeWidth={1.75} />
+          List
+        </NavLink>
+        <NavLink to={user ? `/u/${user.username}` : '/login'} className={item}>
+          {user ? <Avatar user={user} size={22} /> : <UserRound className="h-5 w-5" strokeWidth={1.75} />}
+          {user ? 'Me' : 'Sign in'}
+        </NavLink>
+      </div>
+    </nav>
   )
 }

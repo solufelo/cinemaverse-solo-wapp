@@ -6,18 +6,16 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
-import { KindTag, PlayerLink, Poster, RatingBar, STATUS_STYLES, Skeleton, StatusChip } from './ui'
+import { Avatar, KindTag, PlayerLink, Poster, RatingBar, STATUS_STYLES, Skeleton, StatusChip } from './ui'
 
-export default function ActivityCard({ item, onRemoved, compact = false }) {
+function useLike(item) {
   const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
   const [like, setLike] = useState({ likes: item.likes, likedByMe: item.likedByMe })
-  const [busy, setBusy] = useState(false)
-  const accent = STATUS_STYLES[item.status]?.bar
-  const canDelete = user && (user.username === item.user.username || user.role === 'admin')
+  const [burst, setBurst] = useState(0)
 
-  async function toggleLike() {
+  async function toggle() {
     if (!user) {
       navigate('/login', { state: { from: '/feed' } })
       return
@@ -25,6 +23,7 @@ export default function ActivityCard({ item, onRemoved, compact = false }) {
     const prev = like
     const next = { likes: prev.likes + (prev.likedByMe ? -1 : 1), likedByMe: !prev.likedByMe }
     setLike(next)
+    if (next.likedByMe) setBurst((b) => b + 1)
     try {
       setLike(await api(`/feed/${item.id}/like`, { method: prev.likedByMe ? 'DELETE' : 'POST' }))
     } catch (err) {
@@ -32,7 +31,32 @@ export default function ActivityCard({ item, onRemoved, compact = false }) {
       toast.push({ tone: 'error', message: err.message })
     }
   }
+  return { like, burst, toggle }
+}
 
+function LikeButton({ item }) {
+  const { like, burst, toggle } = useLike(item)
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-pressed={like.likedByMe}
+      aria-label={like.likedByMe ? 'Unlike' : 'Like'}
+      className={`-ml-2 inline-flex h-10 items-center gap-2 rounded-full px-2.5 font-mono text-[12px] transition active:scale-95 ${
+        like.likedByMe ? 'text-plasma' : 'text-muted hover:text-plasma'
+      }`}
+    >
+      <Heart key={burst} className={`h-[18px] w-[18px] ${like.likedByMe ? 'animate-pop fill-plasma' : ''}`} strokeWidth={1.75} />
+      <span className="min-w-[1ch] tabular-nums">{like.likes || ''}</span>
+    </button>
+  )
+}
+
+function useRemove(item, onRemoved) {
+  const { user } = useAuth()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const canDelete = user && (user.username === item.user.username || user.role === 'admin')
   async function remove() {
     setBusy(true)
     try {
@@ -44,78 +68,135 @@ export default function ActivityCard({ item, onRemoved, compact = false }) {
       setBusy(false)
     }
   }
+  return { canDelete, busy, remove }
+}
 
+/** Feed entry. Poster-led: the poster carries the status as a coloured base line. */
+export default function ActivityCard({ item, onRemoved, compact = false }) {
+  if (compact) return <CompactActivity item={item} />
+  return <FeedEntry item={item} onRemoved={onRemoved} />
+}
+
+function FeedEntry({ item, onRemoved }) {
+  const { canDelete, busy, remove } = useRemove(item, onRemoved)
   const logHref = `/log?film=${item.film.tmdbId}`
+  const accent = STATUS_STYLES[item.status]?.bar
 
   return (
-    <article
-      className="panel group relative flex gap-4 overflow-hidden p-4 transition hover:border-white/15 sm:p-5"
-      style={{ boxShadow: `inset 3px 0 0 ${accent}` }}
-    >
-      <Link to={logHref} className="shrink-0" aria-label={`Log ${item.film.title}`}>
-        <Poster
-          path={item.film.posterPath}
-          title={item.film.title}
-          size="w185"
-          className={`${compact ? 'w-14' : 'w-16 sm:w-20'} rounded-lg ring-1 ring-white/10 transition group-hover:ring-white/25`}
-        />
+    <article className="group relative grid grid-cols-[84px_1fr] gap-4 border-b border-white/[0.07] py-6 sm:grid-cols-[112px_1fr] sm:gap-7 sm:py-8">
+      <Link to={logHref} className="relative block self-start" aria-label={`Log ${item.film.title}`}>
+        <span className="lock-on hud-corners block" style={{ '--inset': '-5px', '--corner-len': '10px' }}>
+          <Poster path={item.film.posterPath} title={item.film.title} size="w185" className="w-full rounded-[4px] transition duration-500 ease-out group-hover:brightness-110" />
+        </span>
+        <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[3px] rounded-b-[4px]" style={{ background: accent }} />
       </Link>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          {compact ? null : (
-            <>
-              <PlayerLink user={item.user} />
-              <KindTag kind={item.user.kind} />
-            </>
-          )}
-          <time dateTime={item.createdAt} className="ml-auto shrink-0 text-sm text-muted" title={new Date(item.createdAt).toLocaleString()}>
+
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <PlayerLink user={item.user} />
+          <KindTag kind={item.user.kind} />
+          <time dateTime={item.createdAt} className="ml-auto shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-muted" title={new Date(item.createdAt).toLocaleString()}>
             {timeAgo(item.createdAt)}
           </time>
         </div>
 
-        <p className="mt-2 text-[15px] leading-snug text-slate-300">
-          <span className="sr-only">{item.user.displayName} {STATUS_VERBS[item.status]} </span>
-          <span className="font-display text-[15px] font-bold tracking-wide text-white sm:text-base">{item.film.title}</span>
-          {item.film.releaseYear ? <span className="ml-2 text-muted">{item.film.releaseYear}</span> : null}
-        </p>
+        <h3 className="mt-3 text-[19px] leading-tight sm:mt-4 sm:text-[23px]">
+          <span className="sr-only">
+            {item.user.displayName} {STATUS_VERBS[item.status]}{' '}
+          </span>
+          <Link to={logHref} className="t-film transition hover:text-neon">
+            {item.film.title}
+          </Link>
+          {item.film.releaseYear ? <span className="ml-2 font-mono text-[13px] font-normal text-muted">{item.film.releaseYear}</span> : null}
+        </h3>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <StatusChip status={item.status} />
           <RatingBar rating={item.rating} />
         </div>
 
-        {item.note ? (
-          <p className="mt-3 border-l-2 border-white/10 pl-3 text-[15px] leading-relaxed text-slate-200">{item.note}</p>
-        ) : null}
+        {item.note ? <p className="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-slate-200 sm:text-[17px]">{item.note}</p> : null}
 
-        {!compact && (
-          <div className="mt-3 flex items-center gap-1 text-sm">
+        <div className="mt-4 flex items-center gap-1 sm:mt-5">
+          <LikeButton item={item} />
+          <Link to={logHref} className="inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted transition hover:text-neon">
+            <Plus className="h-4 w-4" /> Log this film
+          </Link>
+          {canDelete ? (
             <button
               type="button"
-              onClick={toggleLike}
-              aria-pressed={like.likedByMe}
-              aria-label={like.likedByMe ? 'Unlike' : 'Like'}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition ${like.likedByMe ? 'text-plasma' : 'text-muted hover:text-plasma'}`}
+              onClick={remove}
+              disabled={busy}
+              className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition hover:bg-ember/10 hover:text-ember"
+              aria-label="Delete post"
             >
-              <Heart className={`h-4 w-4 ${like.likedByMe ? 'fill-plasma' : ''}`} />
-              <span className="tabular-nums">{like.likes || ''}</span>
+              <Trash2 className="h-4 w-4" />
             </button>
-            <Link to={logHref} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted transition hover:text-neon">
-              <Plus className="h-4 w-4" /> Log this film
+          ) : null}
+        </div>
+      </div>
+    </article>
+  )
+}
+
+/** Profile timeline row: thumb, verb, film, rating, take. */
+function CompactActivity({ item }) {
+  const s = STATUS_STYLES[item.status]
+  return (
+    <article className="group relative flex gap-4 py-4">
+      <Link to={`/log?film=${item.film.tmdbId}`} className="shrink-0" aria-label={`Log ${item.film.title}`}>
+        <Poster path={item.film.posterPath} title={item.film.title} size="w92" className="w-12 rounded-[3px] ring-1 ring-white/10 transition group-hover:ring-white/30" />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.12em]">
+          <span className={s?.text}>{STATUS_VERBS[item.status]}</span>
+          <span className="text-slate-600">/</span>
+          <time dateTime={item.createdAt} className="text-muted">
+            {timeAgo(item.createdAt)}
+          </time>
+        </p>
+        <h3 className="mt-1 truncate">
+          <Link to={`/log?film=${item.film.tmdbId}`} className="t-film text-[16px] transition hover:text-neon">
+            {item.film.title}
+          </Link>
+        </h3>
+        {item.rating ? <RatingBar rating={item.rating} className="mt-1.5" /> : null}
+        {item.note ? <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-snug text-slate-400">{item.note}</p> : null}
+      </div>
+    </article>
+  )
+}
+
+/** Home page "take": the note leads, the poster and player follow. */
+export function TakeCard({ item, index = 0 }) {
+  const logHref = `/log?film=${item.film.tmdbId}`
+  return (
+    <article data-reveal style={{ '--i': index }} className="group relative flex flex-col justify-between gap-8 border-t border-white/[0.1] pt-6">
+      <div>
+        <p className="flex items-center justify-between gap-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
+          <StatusChip status={item.status} />
+          <time dateTime={item.createdAt}>{timeAgo(item.createdAt)}</time>
+        </p>
+        <p className="mt-5 text-[19px] leading-snug text-white sm:text-[21px]">
+          {item.note ? <>&ldquo;{item.note}&rdquo;</> : <span className="text-slate-400">No take, just the log.</span>}
+        </p>
+      </div>
+      <div className="flex items-center gap-4">
+        <Link to={logHref} className="shrink-0" aria-label={`Log ${item.film.title}`}>
+          <Poster path={item.film.posterPath} title={item.film.title} size="w92" className="w-14 rounded-[3px] ring-1 ring-white/10 transition duration-300 group-hover:-translate-y-1 group-hover:ring-neon/50" />
+        </Link>
+        <div className="min-w-0">
+          <h3 className="truncate">
+            <Link to={logHref} className="t-film text-[17px] transition hover:text-neon">
+              {item.film.title}
             </Link>
-            {canDelete ? (
-              <button
-                type="button"
-                onClick={remove}
-                disabled={busy}
-                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted transition hover:text-ember"
-                aria-label="Delete post"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
-        )}
+          </h3>
+          <Link to={`/u/${item.user.username}`} className="mt-1 flex items-center gap-2 text-sm text-muted transition hover:text-white">
+            <Avatar user={item.user} size={18} />
+            <span className="truncate">{item.user.displayName}</span>
+            {item.rating ? <span className="font-display text-[12px] font-bold text-acid">{item.rating}/10</span> : null}
+          </Link>
+        </div>
       </div>
     </article>
   )
@@ -123,18 +204,19 @@ export default function ActivityCard({ item, onRemoved, compact = false }) {
 
 export function ActivitySkeleton({ count = 3 }) {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Loading feed">
+    <div aria-busy="true" aria-label="Loading feed">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="panel flex gap-4 p-5">
-          <Skeleton className="aspect-[2/3] w-16 shrink-0 rounded-lg sm:w-20" />
-          <div className="flex-1 space-y-3 pt-1">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-7 w-7 rounded-full" />
-              <Skeleton className="h-4 w-32" />
+        <div key={i} className="grid grid-cols-[84px_1fr] gap-4 border-b border-white/[0.07] py-6 sm:grid-cols-[112px_1fr] sm:gap-7 sm:py-8" style={{ opacity: 1 - i * 0.18 }}>
+          <Skeleton className="aspect-[2/3] w-full rounded-[4px]" />
+          <div className="space-y-4 pt-1">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="h-[26px] w-[26px] rounded-full" />
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="ml-auto h-3 w-14" />
             </div>
-            <Skeleton className="h-5 w-2/3" />
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-4 w-4/5" />
           </div>
         </div>
       ))}

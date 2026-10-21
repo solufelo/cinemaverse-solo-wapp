@@ -2,15 +2,51 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CinemaVerse — log films, rate them, show the squad</title>
+    <meta name="description" content="A film log with a HUD. Mark films watching, completed, queued or dropped, rate them out of ten, and share it with the squad feed." />
+    <meta name="theme-color" content="#07070d" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="CinemaVerse — log and share what you're watching. Gamer-style film social." />
-    <title>CinemaVerse</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CinemaVerse" />
+    <meta property="og:title" content="CinemaVerse — log films, rate them, show the squad" />
+    <meta property="og:description" content="A film log with a HUD. Watching, completed, queued or dropped, rated out of ten, live on the squad feed." />
+    <meta property="og:image" content="https://cinemaverse-solo.netlify.app/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preload" href="/fonts/orbitron-latin-wght.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/saira-latin-wght.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preconnect" href="https://image.tmdb.org" />
+    <style>
+      /* Boot screen: shown only until the app paints, then fades out (main.jsx). */
+      html { background: #07070d; }
+      #boot { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 22px; background: #07070d; transition: opacity .5s ease, visibility .5s ease; }
+      #boot.done { opacity: 0; visibility: hidden; }
+      #boot svg { width: 52px; height: 52px; }
+      #boot .reticle { transform-origin: 32px 32px; animation: boot-spin 2.4s cubic-bezier(.6,0,.2,1) infinite; }
+      #boot .bar { width: 132px; height: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+      #boot .bar i { display: block; height: 100%; width: 40%; background: #00f5ff; box-shadow: 0 0 12px #00f5ff; animation: boot-scan 1.1s cubic-bezier(.6,0,.2,1) infinite; }
+      #boot p { margin: 0; font: 500 10px/1 'JetBrains Mono', ui-monospace, Consolas, monospace; letter-spacing: .32em; color: #8e95aa; text-transform: uppercase; }
+      @keyframes boot-scan { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @keyframes boot-spin { 0% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
+      @media (prefers-reduced-motion: reduce) { #boot, #boot * { animation: none !important; transition: none !important; } }
+    </style>
   </head>
   <body>
+    <div id="boot" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none">
+        <g class="reticle" stroke="#00f5ff" stroke-width="3" stroke-linecap="square">
+          <path d="M6 18V6h12M46 6h12v12M58 46v12H46M18 58H6V46" />
+        </g>
+        <path d="M25 21v22l18-11-18-11z" fill="#eef1f8" />
+        <rect x="47" y="13" width="6" height="6" fill="#ff2d95" />
+      </svg>
+      <div class="bar"><i></i></div>
+      <p>Cinemaverse</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -17,3 +17,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>,
 )
+
+// Hand over from the boot screen in index.html once the app has painted.
+requestAnimationFrame(() => {
+  const boot = document.getElementById('boot')
+  if (!boot) return
+  boot.classList.add('done')
+  setTimeout(() => boot.remove(), 600)
+})

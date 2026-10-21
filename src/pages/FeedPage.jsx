@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Loader2, Radio, RefreshCw } from 'lucide-react'
+import { Loader2, Plus, RefreshCw } from 'lucide-react'
 import { STATUS_LABELS, WATCH_STATUSES } from '../../shared/constants.ts'
 import ActivityCard, { ActivitySkeleton } from '../components/ActivityCard'
 import { DemoButton } from '../components/Navbar'
@@ -59,23 +59,30 @@ export default function FeedPage() {
   const setStatus = (s) => setParams(s ? { status: s } : {}, { replace: true })
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <main>
+      <header className="frame relative flex flex-wrap items-end justify-between gap-6 pb-10 pt-10 sm:pt-14">
         <div>
-          <p className="eyebrow mb-2 flex items-center gap-2">
-            <Radio className="h-3.5 w-3.5" /> Live
+          <p className="hud-label" style={{ '--mark': '#ff2d95' }}>
+            Live <span className="text-slate-600">/</span> newest first
           </p>
-          <h1 className="page-title">Squad feed</h1>
-          <p className="mt-2 text-muted">Every log, status change and rating from players, newest first.</p>
+          <h1 className="t-h1 mt-5">Squad feed</h1>
+          <p className="mt-4 max-w-md text-muted">Every log, status change and rating from the squad, as it happens.</p>
         </div>
-        <button type="button" onClick={() => load()} className="btn-quiet btn-sm" disabled={state.loading}>
-          <RefreshCw className={`h-3.5 w-3.5 ${state.loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
-      </div>
+        <div className="absolute right-5 top-8 flex gap-2 sm:static">
+          <button type="button" onClick={() => load()} className="btn-quiet btn-sm" disabled={state.loading} aria-label="Refresh feed">
+            <RefreshCw className={`h-3.5 w-3.5 ${state.loading ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">Refresh</span>
+          </button>
+          {user ? (
+            <Link to="/log" className="btn-primary btn-sm hidden sm:inline-flex">
+              <Plus className="h-3.5 w-3.5" /> Log a film
+            </Link>
+          ) : null}
+        </div>
+      </header>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-        <div className="min-w-0">
-          <div className="scrollbar-none -mx-4 mb-6 flex gap-2 overflow-x-auto px-4" role="tablist" aria-label="Filter by status">
+      <div className="sticky top-16 z-30 border-b border-white/[0.07] bg-void/85 backdrop-blur-xl">
+        <div className="frame">
+          <div className="tabs mask-fade-x -mx-5 border-b-0 px-5 sm:mx-0 sm:px-0 sm:[mask-image:none]" role="tablist" aria-label="Filter by status">
             <button type="button" role="tab" className="tab" aria-selected={!status} onClick={() => setStatus(null)}>
               All
             </button>
@@ -85,20 +92,47 @@ export default function FeedPage() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="frame grid gap-14 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-8">
+          {!user ? (
+            <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 lg:hidden">
+              <p className="text-[15px] leading-snug text-slate-300">Log a film in two taps.</p>
+              <DemoButton className="btn-primary btn-sm shrink-0">Try the demo</DemoButton>
+            </div>
+          ) : null}
 
           {state.loading && !state.items.length ? (
             <ActivitySkeleton count={4} />
           ) : state.error && !state.items.length ? (
-            <ErrorState error={state.error} onRetry={() => load()} title="The feed didn't load" />
+            <div className="pt-8">
+              <ErrorState error={state.error} onRetry={() => load()} title="The feed didn't load" />
+            </div>
           ) : state.items.length === 0 ? (
-            <EmptyState
-              title={status ? `Nothing ${STATUS_LABELS[status].toLowerCase()} yet` : 'No posts yet'}
-              action={<Link to="/log" className="btn-primary">Log a film</Link>}
-            >
-              {status ? 'Try another filter, or be the first.' : 'Be the first to log a film.'}
-            </EmptyState>
+            <div className="pt-8">
+              <EmptyState
+                label={status ? `Filter: ${STATUS_LABELS[status]}` : 'Channel quiet'}
+                title={status ? `Nothing ${STATUS_LABELS[status].toLowerCase()} yet` : 'No posts yet'}
+                action={
+                  <>
+                    {status ? (
+                      <button type="button" className="btn-ghost" onClick={() => setStatus(null)}>
+                        Show everything
+                      </button>
+                    ) : null}
+                    <Link to="/log" className="btn-primary">
+                      Log a film
+                    </Link>
+                  </>
+                }
+              >
+                {status ? 'Nobody in the squad has a film on this status right now.' : 'Be the first to log a film.'}
+              </EmptyState>
+            </div>
           ) : (
-            <div className={`space-y-4 transition-opacity ${state.loading ? 'opacity-60' : ''}`}>
+            <div className={`transition-opacity duration-300 ${state.loading ? 'opacity-50' : ''}`}>
               {state.items.map((item) => (
                 <ActivityCard
                   key={item.id}
@@ -107,51 +141,55 @@ export default function FeedPage() {
                 />
               ))}
               {state.cursor ? (
-                <div className="flex justify-center pt-2">
-                  <button type="button" onClick={loadMore} disabled={state.loadingMore} className="btn-ghost">
+                <div className="flex justify-center pt-10">
+                  <button type="button" onClick={loadMore} disabled={state.loadingMore} className="btn-ghost min-w-48">
                     {state.loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {state.loadingMore ? 'Loading' : 'Load more'}
                   </button>
                 </div>
               ) : (
-                <p className="pt-4 text-center font-display text-[11px] uppercase tracking-[0.3em] text-muted">End of feed</p>
+                <p className="flex items-center gap-4 pt-10 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
+                  <span className="h-px flex-1 bg-white/10" /> End of feed <span className="h-px flex-1 bg-white/10" />
+                </p>
               )}
-              {state.error && state.items.length ? <p className="text-center text-sm text-ember">{state.error.message}</p> : null}
+              {state.error && state.items.length ? <p className="pt-4 text-center text-sm text-ember">{state.error.message}</p> : null}
             </div>
           )}
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <aside className="hidden space-y-12 pt-8 lg:col-span-4 lg:block lg:sticky lg:top-36 lg:self-start">
           {!user ? (
-            <div className="panel glow-border p-5">
-              <h2 className="font-display text-sm font-bold uppercase tracking-wider text-white">Join the feed</h2>
-              <p className="mt-2 text-muted">Log a film in two clicks with a guest account, or sign up to keep your history.</p>
-              <div className="mt-4 grid gap-2">
+            <div className="hud-corners rounded-sm border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
+              <p className="hud-label">Join the feed</p>
+              <p className="mt-5 font-display text-xl font-bold uppercase leading-tight tracking-tight text-white">Log a film in two clicks.</p>
+              <p className="mt-3 text-muted">A guest account takes one click. Sign up to keep your history.</p>
+              <div className="mt-7 grid gap-2">
                 <DemoButton className="btn-primary w-full">Try the demo</DemoButton>
-                <Link to="/signup" className="btn-quiet w-full">
+                <Link to="/signup" className="btn-ghost w-full">
                   Create account
                 </Link>
               </div>
             </div>
           ) : (
-            <div className="panel p-5">
-              <h2 className="font-display text-sm font-bold uppercase tracking-wider text-white">What are you watching?</h2>
-              <Link to="/log" className="btn-primary mt-4 w-full">
-                Log a film
+            <div className="hud-corners rounded-sm border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
+              <p className="hud-label">Your move</p>
+              <p className="mt-5 font-display text-xl font-bold uppercase leading-tight tracking-tight text-white">What are you watching?</p>
+              <Link to="/log" className="btn-primary mt-7 w-full">
+                <Plus className="h-4 w-4" /> Log a film
               </Link>
             </div>
           )}
           {players.length ? (
-            <div className="panel p-5">
-              <h2 className="mb-3 font-display text-[11px] uppercase tracking-[0.25em] text-muted">Active players</h2>
-              <ul className="space-y-1">
+            <div>
+              <p className="hud-label mb-4">In the squad</p>
+              <ul className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
                 {players.map((p) => (
                   <li key={p.username}>
-                    <Link to={`/u/${p.username}`} className="flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-white/5">
-                      <Avatar user={p} size={30} />
+                    <Link to={`/u/${p.username}`} className="group flex items-center gap-3 py-3 transition">
+                      <Avatar user={p} size={32} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold text-ink">{p.displayName}</span>
-                        <span className="block truncate text-sm text-muted">@{p.username}</span>
+                        <span className="block truncate font-semibold text-ink transition group-hover:text-neon">{p.displayName}</span>
+                        <span className="block truncate font-mono text-[11.5px] text-muted">@{p.username}</span>
                       </span>
                       <KindTag kind={p.kind} />
                     </Link>

@@ -1,3 +1,23 @@
+/* Self-hosted, latin-only variable fonts (OFL, see /public/fonts/OFL.txt). Preloaded in index.html. */
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron-latin-wght.woff2') format('woff2');
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Saira';
+  src: url('/fonts/saira-latin-wght.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-latin-wght.woff2') format('woff2');
+  font-weight: 100 800;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,83 +26,254 @@
   html {
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
+    scroll-padding-top: 5rem;
+    text-rendering: optimizeLegibility;
   }
   body {
-    @apply min-h-screen bg-void font-body text-[16px] font-medium text-slate-300 antialiased;
-    background-image:
-      radial-gradient(1200px 500px at 50% -200px, rgba(0, 245, 255, 0.08), transparent 70%),
-      linear-gradient(rgba(0, 245, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 245, 255, 0.025) 1px, transparent 1px);
-    background-size: 100% 100%, 48px 48px, 48px 48px;
-    background-attachment: fixed, scroll, scroll;
+    @apply min-h-screen bg-void font-sans text-[16px] font-normal leading-relaxed text-slate-300 antialiased;
+    font-feature-settings: 'ss01';
   }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* One focus language everywhere: a crisp neon outline that clears the element. */
   :focus-visible {
-    @apply outline-none ring-2 ring-neon/70 ring-offset-2 ring-offset-void;
+    outline: 2px solid #00f5ff;
+    outline-offset: 3px;
+  }
+  input:focus-visible,
+  textarea:focus-visible {
+    outline-offset: 0;
   }
   ::selection {
     @apply bg-neon/30 text-white;
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
     }
   }
 }
 
 @layer components {
-  .eyebrow {
-    @apply font-display text-[11px] font-medium uppercase tracking-[0.3em] text-neon;
-  }
-  .page-title {
-    @apply font-display text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl;
+  .frame {
+    @apply mx-auto w-full max-w-frame px-5 sm:px-8;
   }
 
+  /* ---- Type scale (fluid). Orbitron is reserved for display and numerals. ---- */
+  .t-hero {
+    @apply font-display font-extrabold uppercase text-white;
+    font-size: clamp(2.6rem, 0.9rem + 4.6vw, 5.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.035em;
+  }
+  .t-h1 {
+    @apply font-display font-extrabold uppercase text-white;
+    font-size: clamp(2.1rem, 1.25rem + 3vw, 4rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  .t-h2 {
+    @apply font-display font-bold uppercase text-white;
+    font-size: clamp(1.45rem, 1.05rem + 1.4vw, 2.35rem);
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+  .t-lead {
+    @apply text-slate-300;
+    font-size: clamp(1.05rem, 0.96rem + 0.35vw, 1.25rem);
+    line-height: 1.55;
+  }
+  .t-num {
+    @apply font-display font-bold tabular-nums;
+    letter-spacing: -0.03em;
+  }
+  .t-film {
+    @apply font-sans font-semibold text-white;
+    letter-spacing: -0.01em;
+  }
+
+  /* HUD label: mono caps with a square marker. The marker colour follows `color` via --mark. */
+  .hud-label {
+    @apply inline-flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted;
+  }
+  .hud-label::before {
+    content: '';
+    @apply h-1.5 w-1.5 shrink-0;
+    background: var(--mark, #00f5ff);
+  }
+  .meta {
+    @apply font-mono text-[11.5px] uppercase tracking-[0.08em] text-muted;
+  }
+
+  /* ---- Buttons: chamfered HUD plates. The plate is a clipped ::before, so the focus outline
+     on the button itself is never clipped. Colour via --plate. ---- */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg px-5 py-2.5 font-display text-[13px] font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50;
+    --cut: 10px;
+    --plate: rgba(255, 255, 255, 0.07);
+    @apply relative isolate inline-flex h-12 select-none items-center justify-center gap-2 whitespace-nowrap px-6 font-sans text-[13px] font-bold uppercase tracking-[0.1em] text-ink;
+    transition:
+      color 0.2s ease,
+      transform 0.15s ease,
+      filter 0.25s ease;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--plate);
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+    transition: background-color 0.25s ease;
+  }
+  .btn:hover {
+    --plate: rgba(255, 255, 255, 0.12);
+  }
+  .btn:active {
+    transform: translateY(1px) scale(0.98);
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+    transform: none;
   }
   .btn-primary {
-    @apply btn bg-gradient-to-r from-neon to-cyan-300 text-void shadow-[0_0_24px_-6px_rgba(0,245,255,0.7)] hover:brightness-110 active:brightness-95;
+    @apply btn text-void;
+    --plate: #00f5ff;
+  }
+  .btn-primary:hover {
+    --plate: #8afbff;
+    filter: drop-shadow(0 0 16px rgba(0, 245, 255, 0.4));
   }
   .btn-ghost {
-    @apply btn border border-neon/40 text-neon hover:bg-neon/10;
+    @apply btn;
+  }
+  .btn-ghost:hover {
+    @apply text-neon;
   }
   .btn-quiet {
-    @apply btn border border-white/10 text-slate-200 hover:border-white/25 hover:bg-white/5;
+    @apply btn rounded-[2px];
+    --plate: transparent;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+  .btn-quiet:hover {
+    --plate: rgba(255, 255, 255, 0.04);
+    @apply text-white;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
   }
   .btn-sm {
-    @apply px-3 py-1.5 text-[11px];
+    --cut: 7px;
+    @apply h-9 px-4 text-[11px];
+  }
+  .btn-icon {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition hover:bg-white/[0.06] hover:text-white active:scale-95;
+  }
+  .link-arrow {
+    @apply inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.14em] text-ink transition hover:text-neon;
+  }
+  .link-arrow svg {
+    @apply transition-transform duration-300 ease-out;
+  }
+  .link-arrow:hover svg {
+    transform: translateX(4px);
   }
 
+  /* ---- Forms ---- */
   .input-field {
-    @apply w-full rounded-lg border border-white/10 bg-void/70 px-4 py-3 text-[16px] text-ink outline-none transition placeholder:text-slate-500 focus:border-neon/60 focus:ring-1 focus:ring-neon/40;
+    @apply w-full rounded-md border border-white/10 bg-white/[0.03] px-4 py-3 text-[16px] text-ink outline-none transition placeholder:text-slate-500 hover:border-white/20 focus:border-neon/70 focus:bg-white/[0.05];
   }
   .field-label {
-    @apply mb-2 block font-display text-[11px] uppercase tracking-[0.2em] text-muted;
+    @apply mb-2 block font-mono text-[11px] uppercase tracking-[0.16em] text-muted;
   }
 
+  /* ---- Surfaces ---- */
   .panel {
-    @apply rounded-2xl border border-white/[0.07] bg-gradient-to-b from-raised/90 to-panel/90 shadow-card backdrop-blur-sm;
+    @apply rounded-2xl border border-white/[0.07] bg-white/[0.025];
   }
-  .glow-border {
-    @apply border-neon/30 shadow-neon;
+  .rule {
+    @apply border-white/[0.07];
   }
 
+  /* Four corner brackets, the HUD "lock" frame. Colour via --c. */
+  .hud-corners {
+    position: relative;
+  }
+  .hud-corners::after {
+    content: '';
+    position: absolute;
+    inset: var(--inset, -6px);
+    pointer-events: none;
+    --c: var(--corner, rgba(0, 245, 255, 0.9));
+    --l: var(--corner-len, 14px);
+    background:
+      linear-gradient(var(--c) 0 0) top left / var(--l) 1.5px no-repeat,
+      linear-gradient(var(--c) 0 0) top left / 1.5px var(--l) no-repeat,
+      linear-gradient(var(--c) 0 0) top right / var(--l) 1.5px no-repeat,
+      linear-gradient(var(--c) 0 0) top right / 1.5px var(--l) no-repeat,
+      linear-gradient(var(--c) 0 0) bottom left / var(--l) 1.5px no-repeat,
+      linear-gradient(var(--c) 0 0) bottom left / 1.5px var(--l) no-repeat,
+      linear-gradient(var(--c) 0 0) bottom right / var(--l) 1.5px no-repeat,
+      linear-gradient(var(--c) 0 0) bottom right / 1.5px var(--l) no-repeat;
+    transition:
+      inset 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+      opacity 0.3s ease;
+  }
+  /* Corners that only lock on when hovered or focused. */
+  .lock-on::after {
+    opacity: 0;
+    inset: -14px;
+  }
+  .group:hover .lock-on::after,
+  .group:focus-visible .lock-on::after,
+  .lock-on.is-locked::after {
+    opacity: 1;
+    inset: -6px;
+  }
+
+  /* ---- Tabs: an underline segmented row ---- */
+  .tabs {
+    @apply flex gap-6 overflow-x-auto border-b border-white/[0.08];
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
   .tab {
-    @apply inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-transparent px-4 py-1.5 font-display text-[11px] uppercase tracking-wider text-muted transition hover:text-white;
+    @apply relative inline-flex shrink-0 items-center gap-2 whitespace-nowrap py-3.5 font-mono text-[12px] uppercase tracking-[0.12em] text-muted transition hover:text-white;
+  }
+  .tab::after {
+    content: '';
+    @apply absolute inset-x-0 -bottom-px h-[2px] origin-left scale-x-0 bg-neon transition-transform duration-300 ease-out;
   }
   .tab[aria-current='page'],
   .tab[aria-selected='true'] {
-    @apply border-neon/40 bg-neon/10 text-neon;
+    @apply text-white;
+  }
+  .tab[aria-current='page']::after,
+  .tab[aria-selected='true']::after {
+    @apply scale-x-100;
+  }
+  .tab-count {
+    @apply rounded-sm bg-white/[0.06] px-1.5 py-px text-[10.5px] tabular-nums text-slate-300;
   }
 
+  /* ---- Loading ---- */
   .skeleton {
-    @apply relative overflow-hidden rounded-md bg-white/[0.06];
+    @apply relative overflow-hidden rounded-md bg-white/[0.05];
   }
   .skeleton::after {
     content: '';
-    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent;
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.06] to-transparent;
   }
 
   .scrollbar-none {
@@ -90,5 +281,150 @@
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Outlined display numerals (ranks, 404). */
+  .outline-num {
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(238, 241, 248, 0.55);
+  }
+
+  /* Fine scanlines for imagery, a nod to CRT HUDs. */
+  .scanlines {
+    background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(0, 245, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 245, 255, 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+}
+
+@layer utilities {
+  .pb-tabbar {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+  .mask-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  }
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+}
+
+/* ---- Motion ---- */
+
+/* Scroll reveal: elements with [data-reveal] rise in once (see lib/reveal.js). Stagger via --i. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+[data-reveal][data-in] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Route change: content settles in while a scan bar sweeps under the nav. */
+.route-in {
+  /* backwards, not both: a held transform would trap fixed/sticky children after the animation. */
+  animation: route-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.route-bar {
+  transform-origin: left;
+  animation: route-bar 0.7s cubic-bezier(0.6, 0, 0.2, 1) both;
+}
+@keyframes route-bar {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  70% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* Hero: the backdrop slowly pushes in while it is on screen. */
+.ken-burns {
+  animation: ken-burns 14s ease-out both;
+}
+@keyframes ken-burns {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* 404 glitch: two offset copies flicker. */
+.glitch {
+  position: relative;
+}
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+}
+.glitch::before {
+  -webkit-text-stroke: 1.5px rgba(0, 245, 255, 0.7);
+  animation: glitch-a 3.2s steps(1) infinite;
+}
+.glitch::after {
+  -webkit-text-stroke: 1.5px rgba(255, 45, 149, 0.7);
+  animation: glitch-b 3.2s steps(1) infinite;
+}
+@keyframes glitch-a {
+  0%, 86%, 100% { transform: none; clip-path: inset(0 0 0 0); opacity: 0; }
+  88% { transform: translate(-6px, 2px); clip-path: inset(20% 0 55% 0); opacity: 1; }
+  92% { transform: translate(5px, -2px); clip-path: inset(60% 0 10% 0); opacity: 1; }
+}
+@keyframes glitch-b {
+  0%, 89%, 100% { transform: none; clip-path: inset(0 0 0 0); opacity: 0; }
+  90% { transform: translate(6px, -1px); clip-path: inset(40% 0 35% 0); opacity: 1; }
+  94% { transform: translate(-4px, 3px); clip-path: inset(5% 0 75% 0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+  .route-in,
+  .route-bar,
+  .ken-burns {
+    animation: none;
+  }
+  .route-bar {
+    opacity: 0;
+  }
+  .glitch::before,
+  .glitch::after {
+    display: none;
+  }
+}
+
+@keyframes route-bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }

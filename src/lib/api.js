@@ -36,3 +36,13 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
   }
   return data
 }
+
+let health = null
+/** /api/health, fetched once per page load and shared (layout notices, TMDB availability). */
+export function getHealth() {
+  health ??= api('/health').catch((err) => {
+    health = null
+    throw err
+  })
+  return health
+}
