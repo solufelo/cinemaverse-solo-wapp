@@ -53,6 +53,20 @@ describe('feed API', () => {
     expect((await call('GET', '/api/feed?cursor=not-a-cursor')).status).toBe(400)
   })
 
+  it("shows a guest's posts to the guest only, so the shared feed stays clean", async () => {
+    const { call, signup } = makeClient(db)
+    const guest = (await call('POST', '/api/auth/demo', { body: {} })).cookie as string
+    await call('PUT', '/api/watchlist/329865', { cookie: guest, body: { film: FILM, status: 'watching' } })
+    const own = (await call('GET', '/api/feed?limit=1', { cookie: guest })).body.items[0] as Item
+    expect(own.user.kind).toBe('guest')
+    expect((await call('GET', '/api/feed?limit=1')).body.items[0].user.kind).toBe('demo')
+    const member = await signup('onlooker')
+    expect((await call('GET', '/api/feed?limit=1', { cookie: member })).body.items[0].user.kind).toBe('demo')
+    // Their own profile still lists the post.
+    const profile = await call('GET', `/api/users/${own.user.username}`)
+    expect(profile.body.activity).toHaveLength(1)
+  })
+
   it('lets signed-in players like and unlike, idempotently', async () => {
     const { call, signup } = makeClient(db)
     const [first] = (await call('GET', '/api/feed?limit=1')).body.items as Item[]

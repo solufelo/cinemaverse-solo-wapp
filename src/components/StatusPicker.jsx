@@ -31,7 +31,6 @@ export default function StatusPicker({ value, onChange, size = 'md', labelledBy,
             {compact ? null : (
               <span className="font-mono text-[11.5px] font-medium uppercase tracking-[0.12em]">{STATUS_LABELS[s]}</span>
             )}
-            {on && !compact ? <span className={`ml-auto h-1.5 w-1.5 ${st.bg}`} aria-hidden="true" /> : null}
           </button>
         )
       })}

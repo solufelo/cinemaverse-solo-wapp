@@ -8,11 +8,11 @@ export default function FilmCard({ film, onSelect, selected, status, eager }) {
       type={onSelect ? 'button' : undefined}
       onClick={onSelect ? () => onSelect(film) : undefined}
       aria-pressed={onSelect ? Boolean(selected) : undefined}
-      className="group relative block w-full text-left outline-offset-[6px]"
+      className="group relative block w-full self-start text-left outline-offset-[6px]"
     >
       <span className={`lock-on hud-corners block ${selected ? 'is-locked' : ''}`} style={{ '--corner': selected ? '#00f5ff' : undefined }}>
         <span
-          className={`relative block overflow-hidden rounded-[5px] ring-1 transition duration-500 ease-out ${
+          className={`relative block overflow-hidden rounded-[4px] ring-1 transition duration-500 ease-out ${
             selected ? 'ring-neon' : 'ring-white/[0.08] group-hover:-translate-y-1 group-hover:ring-white/20'
           }`}
         >
@@ -24,7 +24,7 @@ export default function FilmCard({ film, onSelect, selected, status, eager }) {
           ) : null}
         </span>
       </span>
-      <span className="mt-3 block truncate font-semibold leading-tight text-white">{film.title}</span>
+      <span className="mt-3 line-clamp-3 font-semibold leading-tight text-white">{film.title}</span>
       <span className="mt-1 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted">
         {film.releaseYear || '—'}
         {film.voteAverage ? (
@@ -47,7 +47,7 @@ export function FilmGridSkeleton({ count = 10, className = '' }) {
     <div className={className} aria-busy="true" aria-label="Loading films">
       {Array.from({ length: count }, (_, i) => (
         <div key={i}>
-          <Skeleton className="aspect-[2/3] w-full rounded-[5px]" />
+          <Skeleton className="aspect-[2/3] w-full" />
           <Skeleton className="mt-3 h-4 w-3/4" />
           <Skeleton className="mt-2 h-3 w-1/3" />
         </div>

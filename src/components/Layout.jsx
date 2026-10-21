@@ -57,7 +57,7 @@ function StatusStrip({ sandbox, guest }) {
           <p className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 bg-plasma" aria-hidden="true" />
             <span>
-              <span className="text-slate-200">Guest</span> · <span className="hidden sm:inline">your log is public and </span>expires in 24 h ·{' '}
+              <span className="text-slate-200">Guest pass</span> · <span className="hidden sm:inline">only you see your posts · </span>expires in 24 h ·{' '}
               <Link to="/signup" className="text-neon underline-offset-4 hover:underline">
                 Keep it
               </Link>
@@ -68,7 +68,7 @@ function StatusStrip({ sandbox, guest }) {
           <p className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 bg-acid" aria-hidden="true" />
             <span>
-              <span className="text-slate-200">Sandbox</span> · no database configured, changes reset on restart
+              <span className="text-slate-200">Demo server</span> · logs reset now and then
             </span>
           </p>
         ) : null}
@@ -128,8 +128,8 @@ function Footer() {
       </div>
       <p
         aria-hidden="true"
-        className="outline-num pointer-events-none select-none whitespace-nowrap text-center font-display font-black uppercase leading-[0.8] tracking-[-0.04em] opacity-30"
-        style={{ fontSize: 'clamp(2.4rem, 10.2vw, 11rem)', marginBottom: '-0.1em' }}
+        className="t-outline pointer-events-none select-none whitespace-nowrap text-center font-display font-black uppercase leading-[0.8] opacity-30"
+        style={{ fontSize: 'clamp(2.2rem, 8.6vw, 9.25rem)', marginBottom: '-0.1em' }}
       >
         Cinemaverse
       </p>

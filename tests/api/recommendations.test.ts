@@ -73,12 +73,29 @@ describe('GET /api/recommendations', () => {
     expect(res.body.items.length).toBeGreaterThan(0)
   })
 
-  it('gives a cold-start player community favourites', async () => {
+  it('gives a cold-start player squad favourites, naming who loved each one', async () => {
     const { call, signup } = makeClient(db)
     const cookie = await signup('blank_slate')
     const res = await call('GET', '/api/recommendations', { cookie })
     expect(res.body.basedOn).toBe(0)
-    expect(res.body.items[0].reason).toMatch(/Community favourite|Highly rated/)
+    expect(res.body.items[0].reason).toMatch(/^(Nova|Pixel Rat|Cinema Ghost|Reel Ronin|Kaiju Kid|Velvet Static) gave it \d+\/10/)
+  })
+
+  it('writes a different reason for every pick', async () => {
+    const { call, signup } = makeClient(db)
+    const cookie = await signup('variety')
+    // A guest's 10/10 must not surface: guest logs are private to the guest.
+    const guest = (await call('POST', '/api/auth/demo', { body: {} })).cookie
+    const guestName: string = (await call('GET', '/api/auth/me', { cookie: guest })).body.user.displayName
+    await call('PUT', '/api/watchlist/27205', { cookie: guest, body: { film: { ...FILM, title: 'Inception', genres: ['Action', 'Science Fiction', 'Crime'] }, status: 'completed', rating: 10, note: 'guest take' } })
+    await call('PUT', '/api/watchlist/438631', { cookie, body: { film: { ...FILM, title: 'Dune', genres: ['Science Fiction', 'Adventure'] }, status: 'completed', rating: 8 } })
+    await call('PUT', '/api/watchlist/4977', { cookie, body: { film: { ...FILM, title: 'Paprika', genres: ['Animation', 'Science Fiction', 'Thriller'] }, status: 'planned' } })
+    const reasons: string[] = (await call('GET', '/api/recommendations', { cookie })).body.items.map((i: { reason: string }) => i.reason)
+    expect(reasons).toHaveLength(8)
+    expect(new Set(reasons).size).toBe(reasons.length)
+    // Squad members are named, and guests never are.
+    expect(reasons.some((r) => / gave it \d+\/10/.test(r))).toBe(true)
+    expect(reasons.join(' ')).not.toContain(guestName)
   })
 
   it('uses OpenRouter when a key is set, mapping picks onto known films', async () => {

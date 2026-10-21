@@ -30,7 +30,7 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             role={t.tone === 'error' ? 'alert' : 'status'}
-            className={`pointer-events-auto relative flex w-full max-w-sm animate-rise items-start gap-3 overflow-hidden rounded-lg border border-white/10 bg-raised/95 py-3.5 pl-4 pr-3 shadow-[0_24px_48px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl`}
+            className={`pointer-events-auto relative flex w-full max-w-sm animate-rise items-start gap-3 overflow-hidden rounded-[4px] border border-white/10 bg-raised/95 py-3.5 pl-4 pr-3 shadow-[0_24px_48px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl`}
           >
             <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-[3px] ${t.tone === 'error' ? 'bg-ember' : 'bg-acid'}`} />
             {t.tone === 'error' ? (

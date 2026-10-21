@@ -33,7 +33,9 @@ type Entry = {
   rating: number | null
 }
 
-type Candidate = CatalogFilm & { communityAvg: number | null; communityCount: number }
+/** The squad member who rated a film highest, with their take if they wrote one. */
+type Fan = { name: string; rating: number | null; note: string }
+type Candidate = CatalogFilm & { communityAvg: number | null; communityCount: number; fan?: Fan | null }
 
 export const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 const cache = new Map<string, { expires: number; value: Recommendations }>()
@@ -95,15 +97,20 @@ async function communityCandidates(db: Db, userId: string): Promise<Candidate[]>
     genres: string[]
     avg: number | null
     n: number
+    fan: Fan | null
   }>(
-    `select tmdb_id as "tmdbId", max(title) as title, max(release_year) as "releaseYear",
-            max(poster_path) as "posterPath", max(backdrop_path) as "backdropPath",
+    `select w.tmdb_id as "tmdbId", max(w.title) as title, max(w.release_year) as "releaseYear",
+            max(w.poster_path) as "posterPath", max(w.backdrop_path) as "backdropPath",
             -- jsonb, not array_agg(genres): array_agg needs every array the same length and
             -- players can log the same film with different genre lists.
-            (jsonb_agg(to_jsonb(genres) order by cardinality(genres) desc)) -> 0 as genres,
-            avg(rating)::float8 as avg, count(*)::int as n
-       from watch_entries where user_id <> $1 and status <> 'dropped'
-      group by tmdb_id`,
+            (jsonb_agg(to_jsonb(w.genres) order by cardinality(w.genres) desc)) -> 0 as genres,
+            avg(w.rating)::float8 as avg, count(*)::int as n,
+            (jsonb_agg(jsonb_build_object('name', u.display_name, 'rating', w.rating, 'note', w.note)
+               order by w.rating desc nulls last, (w.note <> '') desc, w.updated_at desc)) -> 0 as fan
+       from watch_entries w join users u on u.id = w.user_id
+      -- Guests' logs are private to them, so they never shape anyone else's picks.
+      where w.user_id <> $1 and w.status <> 'dropped' and u.kind <> 'guest'
+      group by w.tmdb_id`,
     [userId],
   )
   const byId = new Map<number, Candidate>()
@@ -120,6 +127,7 @@ async function communityCandidates(db: Db, userId: string): Promise<Candidate[]>
       voteAverage: base?.voteAverage ?? 7,
       communityAvg: r.avg,
       communityCount: r.n,
+      fan: r.fan,
     })
   }
   return [...byId.values()]
@@ -154,6 +162,7 @@ export function tasteMatch(entries: Entry[], candidates: Candidate[], limit = 8)
     .sort((a, b) => b.score - a.score || a.c.title.localeCompare(b.c.title))
     .slice(0, limit)
 
+  const used = { anchors: new Map<number, number>(), fans: new Map<string, number>() }
   return scored.map(({ c }) => ({
     tmdbId: c.tmdbId,
     title: c.title,
@@ -161,27 +170,63 @@ export function tasteMatch(entries: Entry[], candidates: Candidate[], limit = 8)
     posterPath: c.posterPath,
     backdropPath: c.backdropPath,
     genres: c.genres,
-    reason: explain(c, anchors, affinity),
+    reason: explain(c, anchors, affinity, used),
   }))
 }
 
-function explain(c: Candidate, anchors: Entry[], affinity: Map<string, number>) {
-  let best: { anchor: Entry; shared: string[] } | null = null
+/**
+ * One line on why this film, written so a page of picks doesn't repeat itself: each pick leans
+ * on the log entry (anchor) or squad member (fan) that has been mentioned least so far.
+ */
+function explain(
+  c: Candidate,
+  anchors: Entry[],
+  affinity: Map<string, number>,
+  used: { anchors: Map<number, number>; fans: Map<string, number> },
+) {
+  let best: { anchor: Entry; shared: string[]; score: number } | null = null
   for (const anchor of anchors) {
     const shared = c.genres.filter((g) => anchor.genres.includes(g) && (affinity.get(g) ?? 0) > 0)
-    if (shared.length && (!best || shared.length > best.shared.length || (anchor.rating ?? 0) > (best.anchor.rating ?? 0) && shared.length === best.shared.length)) {
-      best = { anchor, shared }
-    }
+    if (!shared.length) continue
+    const score = shared.length * 2 - (used.anchors.get(anchor.tmdbId) ?? 0) * 3 + (anchor.rating ?? 6) / 10
+    if (!best || score > best.score) best = { anchor, shared, score }
   }
-  const community =
-    c.communityAvg && c.communityCount > 0
-      ? ` Players rate it ${Number(c.communityAvg.toFixed(1))}/10.`
-      : ''
+  const fan = c.fan?.rating && c.fan.rating >= 7 ? c.fan : null
+  const anchorUses = best ? (used.anchors.get(best.anchor.tmdbId) ?? 0) : 0
+  const fanUses = fan ? (used.fans.get(fan.name) ?? 0) : 0
+  const mention = (what: 'anchor' | 'fan' | 'both') => {
+    if (best && what !== 'fan') used.anchors.set(best.anchor.tmdbId, anchorUses + 1)
+    if (fan && what !== 'anchor') used.fans.set(fan.name, fanUses + 1)
+  }
+  const genres = best?.shared.slice(0, 2).join(' + ')
+
+  if (best && anchorUses === 0) {
+    mention('anchor')
+    const a = best.anchor
+    return a.rating ? `Because you rated ${a.title} ${a.rating}/10 · ${genres}.` : `${a.title} is on your list · ${genres}.`
+  }
+  if (fan && fanUses === 0) {
+    mention('fan')
+    const take = fan.note && fan.note.length <= 90 ? `: “${fan.note}”` : '.'
+    return `${fan.name} gave it ${fan.rating}/10${take}`
+  }
+  if (best && anchorUses === 1) {
+    mention('anchor')
+    return `More ${best.shared[0].toLowerCase()} in the vein of ${best.anchor.title}.`
+  }
+  if (best && fan) {
+    mention('both')
+    return `${fan.name} gave it ${fan.rating}/10, and it shares ${genres} with ${best.anchor.title}.`
+  }
+  if (fan) {
+    mention('fan')
+    const others = c.communityCount - 1
+    return `${fan.name} gave it ${fan.rating}/10${others > 0 ? `, and ${others} more in the squad logged it` : ''}.`
+  }
   if (best) {
-    const how = best.anchor.rating ? `you rated ${best.anchor.title} ${best.anchor.rating}/10` : `${best.anchor.title} is on your list`
-    return `Because ${how} · ${best.shared.slice(0, 2).join(' + ')}.${community}`
+    mention('anchor')
+    return `Shares ${genres} with ${best.anchor.title}. TMDB average ${c.voteAverage.toFixed(1)}.`
   }
-  if (community) return `Community favourite.${community}`
   return `Highly rated on TMDB (${c.voteAverage.toFixed(1)}/10).`
 }
 

@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Heart, ListVideo, Plus, Radio } from 'lucide-react'
 import { TakeCard } from '../components/ActivityCard'
 import { DemoButton } from '../components/Navbar'
-import { Avatar, EmptyState, ErrorState, Poster, RatingBar, SectionHead, Skeleton, StatusChip } from '../components/ui'
+import { Avatar, EmptyState, ErrorState, Poster, SectionHead, Skeleton, STATUS_STYLES, StatusChip } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useApi } from '../hooks/useApi'
-import { pad2 } from '../lib/format'
+import { metaLine, pad2, pickTakes, timeAgo } from '../lib/format'
 import { getTrending, imageUrl } from '../lib/tmdb'
-import { STATUS_VERBS, WATCH_STATUSES } from '../../shared/constants.ts'
+import { CATALOG_BY_ID } from '../../shared/catalog.ts'
+import { STATUS_VERBS } from '../../shared/constants.ts'
 
 const CYCLE_MS = 6500
 
@@ -39,47 +40,30 @@ export default function HomePage() {
 
   const items = feed.data?.items ?? []
   const featured = trending.films.filter((f) => f.posterPath && f.backdropPath).slice(0, 5)
+  const shelf = trending.source === 'catalog'
 
   return (
     <main>
-      <Hero featured={featured} loading={trending.loading} user={user} />
+      <Hero featured={featured} loading={trending.loading} user={user} shelf={shelf} />
       <Ticker items={items} loading={feed.loading && !feed.data} />
 
-      {/* Trending rail */}
-      <section className="pt-20 sm:pt-24" aria-labelledby="trending">
-        <TrendingRail films={trending.films.slice(0, 10)} source={trending.source} loading={trending.loading} />
+      {/* Trending rail (or, without live film data, the curated shelf) */}
+      <section className="pt-20 sm:pt-24" aria-labelledby="trending" data-source={trending.source ?? undefined}>
+        <TrendingRail films={trending.films.slice(0, 10)} total={trending.films.length} shelf={shelf} loading={trending.loading} />
       </section>
 
       {/* How it plays */}
       <section className="frame pt-28 sm:pt-36" aria-labelledby="how">
         <SectionHead id="how" label="How it plays" title={<>Three moves.<br className="hidden sm:block" /> One list.</>} />
-        <ol className="grid gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.07] md:grid-cols-3">
+        <ol className="grid gap-px overflow-hidden rounded-[4px] border border-white/[0.07] bg-white/[0.07] md:grid-cols-3">
           <Step n={1} title="Log it" body="Search any film, pick a status, rate it out of ten. Add a take if you have one.">
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {WATCH_STATUSES.map((s) => (
-                <StatusChip key={s} status={s} />
-              ))}
-            </div>
-            <RatingBar rating={8} className="mt-4" />
+            <MiniLog />
           </Step>
           <Step n={2} title="Share it" body="Every log and status change lands on the squad feed and your public profile.">
-            <div className="flex items-center gap-3">
-              <div className="flex -space-x-2">
-                {[...new Map(items.map((i) => [i.user.username, i.user])).values()].slice(0, 5).map((u) => (
-                  <Avatar key={u.username} user={u} size={30} className="ring-2 ring-panel" />
-                ))}
-              </div>
-              <span className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-plasma">
-                <Heart className="h-3.5 w-3.5 fill-plasma" /> Likes, takes
-              </span>
-            </div>
+            <MiniFeed item={items.find((i) => i.note && i.rating) ?? items[0]} />
           </Step>
           <Step n={3} title="Find the next one" body="For you ranks what to watch next from the genres you rate highest and what the squad loved.">
-            <div className="flex gap-2">
-              {trending.films.slice(10, 14).map((f) => (
-                <Poster key={f.tmdbId} path={f.posterPath} title={f.title} size="w92" className="w-14 rounded-[3px] ring-1 ring-white/10" />
-              ))}
-            </div>
+            <MiniPick />
           </Step>
         </ol>
       </section>
@@ -107,14 +91,14 @@ export default function HomePage() {
             ))}
           </div>
         ) : feed.error ? (
-          <ErrorState error={feed.error} onRetry={feed.reload} title="The feed didn't load" />
+          <ErrorState error={feed.error} onRetry={feed.reload} title="The feed is down for a moment" />
         ) : items.length === 0 ? (
           <EmptyState label="Channel quiet" title="Quiet in here" action={<Link to="/log" className="btn-primary">Log the first film</Link>}>
             Nobody has logged a film yet. Be first.
           </EmptyState>
         ) : (
           <div className="grid gap-x-10 gap-y-14 md:grid-cols-3">
-            {takes(items).map((item, i) => (
+            {pickTakes(items).map((item, i) => (
               <TakeCard key={item.id} item={item} index={i} />
             ))}
           </div>
@@ -126,21 +110,12 @@ export default function HomePage() {
   )
 }
 
-/** Three posts for the home page: takes first, and never the same film twice. */
-function takes(items) {
-  const films = new Set()
-  return [...items.filter((i) => i.note), ...items.filter((i) => !i.note)]
-    .filter((i) => !films.has(i.film.tmdbId) && films.add(i.film.tmdbId))
-    .slice(0, 3)
-}
-
-function Hero({ featured, loading, user }) {
+function Hero({ featured, loading, user, shelf }) {
   const reduced = usePrefersReducedMotion()
   const [index, setIndex] = useState(0)
   const [seen, setSeen] = useState(1)
   const [paused, setPaused] = useState(false)
   const count = featured.length
-  const film = featured[index]
 
   useEffect(() => {
     if (reduced || paused || count < 2) return
@@ -154,41 +129,40 @@ function Hero({ featured, loading, user }) {
 
   return (
     <section className="relative isolate overflow-hidden border-b border-white/[0.06]" aria-label="Introduction">
-      {/* Backdrop: the featured film, crossfading. Only loaded up to one ahead of what's been shown. */}
+      {/* Ambient wash: the featured still blurred down to colour, so no face or fragment ever sits under the copy. */}
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-void">
         {featured.slice(0, seen).map((f, i) => (
           <img
             key={f.tmdbId}
-            src={imageUrl(f.backdropPath, 'w1280')}
+            src={imageUrl(f.backdropPath, 'w300')}
             alt=""
-            fetchpriority={i === 0 ? 'high' : undefined}
-            className={`absolute inset-0 h-full w-full object-cover object-[70%_30%] transition-opacity duration-[1400ms] ease-out ${
-              i === index ? 'ken-burns opacity-60' : 'opacity-0'
-            }`}
+            className={`absolute inset-0 h-full w-full scale-110 object-cover blur-[72px] saturate-150 transition-opacity duration-[1400ms] ease-out ${i === index ? 'opacity-40' : 'opacity-0'}`}
           />
         ))}
-        <div className="scanlines absolute inset-0 opacity-60" />
-        <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-void/0 max-lg:bg-void/55" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void via-void/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-void/40 via-void/75 to-void lg:bg-gradient-to-r lg:from-void lg:via-void/85 lg:to-void/30" />
         <div className="grid-bg absolute inset-0 opacity-40 [mask-image:radial-gradient(70%_60%_at_20%_40%,black,transparent)]" />
       </div>
 
-      <div className="frame grid min-h-[min(820px,calc(100svh-7.5rem))] items-end gap-12 pb-12 pt-16 sm:pb-16 lg:grid-cols-12 lg:gap-8 lg:pt-16">
-        <div className="lg:col-span-7">
+      <div className="frame grid min-h-[min(820px,calc(100svh-7.5rem))] content-center gap-7 pb-12 pt-5 sm:pb-16 sm:pt-10 lg:grid-cols-12 lg:items-center lg:gap-8 lg:pt-16">
+        <div className="lg:order-2 lg:col-span-5 lg:col-start-8" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+          <Target featured={featured} seen={seen} index={index} loading={loading} onPick={setIndex} paused={paused || reduced} shelf={shelf} />
+        </div>
+
+        <div className="lg:order-1 lg:col-span-7 lg:row-start-1">
           <p className="hud-label animate-rise">
             Film log <span className="text-slate-600">/</span> Squad feed
           </p>
-          <h1 className="t-hero mt-7 animate-rise [animation-delay:80ms]">
+          <h1 className="t-hero mt-5 animate-rise [animation-delay:80ms] sm:mt-7">
             Log films.
             <br />
-            <span className="outline-num [-webkit-text-stroke-color:rgba(238,241,248,0.85)]">Rate them.</span>
+            <span className="t-outline [-webkit-text-stroke-color:rgba(238,241,248,0.85)]">Rate them.</span>
             <br />
             <span className="text-neon">Show the squad.</span>
           </h1>
-          <p className="t-lead mt-8 max-w-[34rem] animate-rise [animation-delay:160ms]">
+          <p className="t-lead mt-5 max-w-[34rem] animate-rise [animation-delay:160ms] sm:mt-8">
             Mark every film watching, completed, queued or dropped. Rate it out of ten, add a take, and it lands on your profile and the live feed.
           </p>
-          <div className="mt-10 flex flex-col gap-3 animate-rise [animation-delay:240ms] sm:flex-row sm:flex-wrap">
+          <div className="mt-7 flex flex-col gap-3 animate-rise [animation-delay:240ms] sm:mt-10 sm:flex-row sm:flex-wrap">
             {user ? (
               <>
                 <Link to="/log" className="btn-primary">
@@ -200,7 +174,7 @@ function Hero({ featured, loading, user }) {
               </>
             ) : (
               <>
-                <DemoButton>Try it, no sign-up</DemoButton>
+                <DemoButton />
                 <Link to="/feed" className="btn-ghost">
                   <Radio className="h-4 w-4" /> View live feed
                 </Link>
@@ -217,79 +191,140 @@ function Hero({ featured, loading, user }) {
             </p>
           ) : null}
         </div>
-
-        <div className="lg:col-span-4 lg:col-start-9" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-          <Target film={film} index={index} count={count} loading={loading} onPick={setIndex} paused={paused || reduced} />
-        </div>
       </div>
     </section>
   )
 }
 
-/** The "locked target": the featured film's poster in HUD brackets with a readout. */
-function Target({ film, index, count, loading, onPick, paused }) {
+/** Progress dashes for the featured films; each one is a 24px-tall target. */
+function Dots({ count, index, onPick, paused }) {
+  return (
+    <div className="flex gap-1.5" role="group" aria-label="Featured films">
+      {Array.from({ length: count }, (_, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onPick(i)}
+          aria-label={`Show featured film ${i + 1}`}
+          aria-current={i === index ? 'true' : undefined}
+          className="group/dot relative h-6 flex-1"
+        >
+          <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 overflow-hidden bg-white/15 transition group-hover/dot:bg-white/30">
+            {i === index ? (
+              <span key={`${index}-${paused}`} className="block h-full origin-left bg-neon" style={paused ? undefined : { animation: `route-bar-fill ${CYCLE_MS}ms linear both` }} />
+            ) : i < index ? (
+              <span className="block h-full bg-white/50" />
+            ) : null}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The "locked target": the featured film as a still with its one-sheet laid over the corner.
+ * The still is shown whole (16:9 in a 16:9 frame), so nothing is cropped by accident.
+ * On phones it folds into one compact row above the headline, inside the first screen.
+ */
+function Target({ featured, seen, index, loading, onPick, paused, shelf }) {
+  const film = featured[index]
+  const count = featured.length
+  const kicker = shelf ? 'Top rated' : 'Trending'
   if (loading || !film) {
     return (
-      <div className="flex gap-5 lg:block">
-        <Skeleton className="aspect-[2/3] w-32 shrink-0 rounded-[6px] sm:w-40 lg:w-full lg:max-w-[300px]" />
-        <div className="flex-1 space-y-3 pt-2 lg:mt-6">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-5 w-3/4" />
+      <div aria-busy="true" aria-label="Loading featured film">
+        <div className="flex items-center gap-4 rounded-[4px] border border-white/[0.09] p-2.5 lg:hidden">
+          <Skeleton className="aspect-[2/3] w-14 shrink-0 rounded-[3px]" />
+          <div className="flex-1 space-y-2.5">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+        <div className="hidden lg:block">
+          <Skeleton className="mb-4 h-3 w-32" />
+          <Skeleton className="aspect-video w-full" />
+          <div className="relative mt-5 flex items-start gap-6 pl-5">
+            <Skeleton className="-mt-[26%] aspect-[2/3] w-[36%] shrink-0 ring-1 ring-void" />
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
         </div>
       </div>
     )
   }
+  const href = `/log?film=${film.tmdbId}`
+  const readout = (
+    <>
+      <span className="text-neon">Target</span> {pad2(index + 1)} / {pad2(count)}
+    </>
+  )
   return (
-    <div className="animate-rise [animation-delay:200ms]">
-      <p className="mb-4 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-        <span>
-          <span className="text-neon">Target</span> {pad2(index + 1)} / {pad2(count)}
-        </span>
-        <span className="hidden sm:inline">Trending</span>
-      </p>
-      <div className="flex gap-5 lg:block">
-        <Link to={`/log?film=${film.tmdbId}`} className="group relative block w-32 shrink-0 sm:w-40 lg:w-full lg:max-w-[300px]" aria-label={`Log ${film.title}`}>
+    <div className="animate-rise [animation-delay:120ms]">
+      {/* Phone: one row inside the first screen. */}
+      <div className="lg:hidden">
+        <Link to={href} className="group flex items-center gap-4 rounded-[4px] border border-white/[0.09] bg-void/60 p-2.5 pr-4 backdrop-blur" aria-label={`Log ${film.title}`}>
+          <Poster key={film.tmdbId} path={film.posterPath} title={film.title} size="w185" priority className="w-14 shrink-0 rounded-[3px] ring-1 ring-white/10" />
+          <span className="min-w-0 flex-1">
+            <span className="meta block text-[10.5px]">
+              {readout} · {kicker}
+            </span>
+            <span className="t-film mt-1 line-clamp-2 block text-[16px] leading-tight">{film.title}</span>
+            <span className="meta mt-1 block text-[10.5px]">{metaLine(film.releaseYear, film.genres, { limit: 1 })}</span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-1 group-hover:text-neon" />
+        </Link>
+        <div className="mt-1.5 px-1">
+          <Dots count={count} index={index} onPick={onPick} paused={paused} />
+        </div>
+      </div>
+
+      {/* Desktop: the still, the one-sheet over its corner, the readout beside it. */}
+      <div className="hidden lg:block">
+        <p className="mb-4 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+          <span>{readout}</span>
+          <span>{kicker}</span>
+        </p>
+        <Link to={href} className="group block" aria-label={`Log ${film.title}`} tabIndex={-1}>
           <span className="hud-corners block" style={{ '--inset': '-8px', '--corner-len': '18px' }}>
-            <span className="relative block overflow-hidden rounded-[6px] shadow-[0_40px_80px_-30px_rgba(0,0,0,0.9)]">
-              <Poster key={film.tmdbId} path={film.posterPath} title={film.title} size="w500" priority className="w-full transition duration-700 ease-out group-hover:scale-[1.03]" />
-              <span aria-hidden="true" className="scanlines absolute inset-0 opacity-30" />
+            <span className="img-wait relative block aspect-video overflow-hidden rounded-[4px] ring-1 ring-white/10">
+              {featured.slice(0, seen).map((f, i) => (
+                <img
+                  key={f.tmdbId}
+                  src={imageUrl(f.backdropPath, 'w780')}
+                  srcSet={`${imageUrl(f.backdropPath, 'w780')} 780w, ${imageUrl(f.backdropPath, 'w1280')} 1280w`}
+                  sizes="480px"
+                  alt=""
+                  fetchpriority={i === 0 ? 'high' : undefined}
+                  className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-[1200ms] ease-out group-hover:scale-[1.02] ${i === index ? 'opacity-100' : 'opacity-0'}`}
+                />
+              ))}
+              <span aria-hidden="true" className="scanlines absolute inset-0 opacity-25" />
+              <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void/80 to-transparent" />
             </span>
           </span>
         </Link>
-        <div className="min-w-0 flex-1 lg:mt-7">
-          <p key={film.tmdbId} className="t-film animate-rise text-[20px] leading-tight lg:text-[24px]">
-            {film.title}
-          </p>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted">
-            {[film.releaseYear, film.genres?.[0], film.voteAverage ? `TMDB ${film.voteAverage.toFixed(1)}` : null].filter(Boolean).join(' · ')}
-          </p>
-          <div className="mt-5 flex gap-1.5" role="group" aria-label="Featured films">
-            {Array.from({ length: count }, (_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => onPick(i)}
-                aria-label={`Show featured film ${i + 1}`}
-                aria-current={i === index ? 'true' : undefined}
-                className="group/dot relative h-6 flex-1"
-              >
-                <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 overflow-hidden bg-white/15 transition group-hover/dot:bg-white/30">
-                  {i === index ? (
-                    <span
-                      key={`${index}-${paused}`}
-                      className="block h-full origin-left bg-neon"
-                      style={paused ? undefined : { animation: `route-bar-fill ${CYCLE_MS}ms linear both` }}
-                    />
-                  ) : i < index ? (
-                    <span className="block h-full bg-white/50" />
-                  ) : null}
-                </span>
-              </button>
-            ))}
-          </div>
-          <Link to={`/log?film=${film.tmdbId}`} className="link-arrow mt-5">
-            Log this film <ArrowRight className="h-4 w-4" />
+        {/* Only the one-sheet climbs into the still; the readout starts below it, clear of the image. */}
+        <div className="relative mt-5 flex items-start gap-6 pl-5">
+          <Link to={href} className="group -mt-[26%] block w-[36%] shrink-0" aria-label={`Log ${film.title}`}>
+            <span className="block overflow-hidden rounded-[4px] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.95)] ring-1 ring-white/15">
+              <Poster key={film.tmdbId} path={film.posterPath} title={film.title} size="w342" priority className="w-full transition duration-700 ease-out group-hover:scale-[1.03]" />
+            </span>
           </Link>
+          <div className="min-w-0 flex-1">
+            <p key={film.tmdbId} className="t-film line-clamp-2 animate-rise text-[22px] leading-tight">
+              {film.title}
+            </p>
+            <p className="meta mt-2">{[metaLine(film.releaseYear, film.genres, { limit: 1 }), film.voteAverage ? `TMDB ${film.voteAverage.toFixed(1)}` : null].filter(Boolean).join(' · ')}</p>
+            <div className="mt-4">
+              <Dots count={count} index={index} onPick={onPick} paused={paused} />
+            </div>
+            <Link to={href} className="link-arrow mt-4">
+              Log this film <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -310,7 +345,7 @@ function Ticker({ items, loading }) {
           </Link>
           <StatusVerb status={item.status} />
           <span className="text-white">{item.film.title}</span>
-          {item.rating ? <span className="font-display text-[11px] font-bold text-acid">{item.rating}/10</span> : null}
+          {item.rating ? <span className="font-semibold text-acid">{item.rating}/10</span> : null}
           <span className="pl-4 text-slate-700" aria-hidden="true">
             ///
           </span>
@@ -338,25 +373,26 @@ function StatusVerb({ status }) {
   return <span className={colors[status]}>{STATUS_VERBS[status]}</span>
 }
 
-function TrendingRail({ films, source, loading }) {
+function TrendingRail({ films, total, shelf, loading }) {
   const rail = useRef(null)
   const scroll = (dir) => {
     const el = rail.current
     if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' })
   }
+  const inset = 'max(var(--pad), calc((100vw - 1240px) / 2 + var(--pad)))'
   return (
     <>
       <div className="frame">
         <SectionHead
           id="trending"
-          label={source === 'catalog' ? 'Offline catalog' : 'This week on TMDB'}
-          title="Trending now"
+          label={shelf ? 'Curated shelf' : 'This week on TMDB'}
+          title={shelf ? 'Top of the shelf' : 'Trending now'}
           aside={
             <div className="flex items-center gap-2">
-              <button type="button" className="btn-icon hidden border border-white/10 md:inline-flex" onClick={() => scroll(-1)} aria-label="Scroll trending left">
+              <button type="button" className="btn-icon hidden border border-white/10 md:inline-flex" onClick={() => scroll(-1)} aria-label="Scroll films left">
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <button type="button" className="btn-icon hidden border border-white/10 md:inline-flex" onClick={() => scroll(1)} aria-label="Scroll trending right">
+              <button type="button" className="btn-icon hidden border border-white/10 md:inline-flex" onClick={() => scroll(1)} aria-label="Scroll films right">
                 <ArrowRight className="h-4 w-4" />
               </button>
               <Link to="/log" className="link-arrow ml-3">
@@ -365,41 +401,38 @@ function TrendingRail({ films, source, loading }) {
             </div>
           }
         >
-          {source === 'catalog' ? 'No TMDB key on this server, so these come from the built-in catalogue of real films.' : 'Pick one to log it.'}
+          {shelf ? `From a curated shelf of ${total} films, highest rated first. Pick one to log it.` : 'Pick one to log it.'}
         </SectionHead>
       </div>
       <ol
         ref={rail}
-        className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 pr-5 sm:gap-5 sm:pr-8"
-        style={{ paddingLeft: 'max(0.25rem, calc((100vw - 1240px) / 2 + 0.5rem))', scrollPaddingLeft: 'max(0.25rem, calc((100vw - 1240px) / 2 + 0.5rem))' }}
-        aria-label="Trending films"
+        className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [--pad:1.25rem] sm:gap-6 sm:[--pad:2rem]"
+        style={{ paddingInline: inset, scrollPaddingLeft: inset }}
+        aria-label={shelf ? 'Top rated films' : 'Trending films'}
       >
         {loading
-          ? Array.from({ length: 6 }, (_, i) => (
-              <li key={i} className="shrink-0 pl-[3.75rem] sm:pl-[5.75rem]">
-                <Skeleton className="aspect-[2/3] w-[148px] rounded-[5px] sm:w-[196px]" />
+          ? Array.from({ length: 7 }, (_, i) => (
+              <li key={i} className="w-[148px] shrink-0 sm:w-[184px]">
+                <Skeleton className="aspect-[2/3] w-full" />
+                <Skeleton className="mt-4 h-4 w-3/4" />
               </li>
             ))
           : films.map((film, i) => (
-              <li key={film.tmdbId} className={`group shrink-0 snap-start ${i >= 9 ? 'pl-[6rem] sm:pl-[9.5rem]' : 'pl-[3.75rem] sm:pl-[5.75rem]'}`} data-reveal="scan" style={{ '--i': Math.min(i, 6) }}>
-                <Link to={`/log?film=${film.tmdbId}`} className="relative block w-[148px] sm:w-[196px]">
-                  <span className="relative block">
-                    <span
-                      aria-hidden="true"
-                      className="outline-num absolute bottom-[-0.07em] right-[calc(100%+0.2rem)] font-display font-black leading-none tracking-[-0.07em] transition-[-webkit-text-stroke-color] duration-500 group-hover:[-webkit-text-stroke-color:#00f5ff]"
-                      style={{ fontSize: 'clamp(4.75rem, 7.5vw, 7.25rem)' }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="lock-on hud-corners relative block">
-                      <span className="block overflow-hidden rounded-[5px] ring-1 ring-white/10 transition duration-500 ease-out group-hover:-translate-y-1.5 group-hover:ring-white/25">
-                        <Poster path={film.posterPath} title={film.title} eager={i < 5} className="w-full transition duration-700 ease-out group-hover:scale-[1.04]" />
-                      </span>
+              <li key={film.tmdbId} className="group w-[148px] shrink-0 snap-start sm:w-[184px]" data-reveal="scan" style={{ '--i': Math.min(i, 6) }}>
+                <Link to={`/log?film=${film.tmdbId}`} className="block">
+                  <span className="lock-on hud-corners block">
+                    <span className="block overflow-hidden rounded-[4px] ring-1 ring-white/10 transition duration-500 ease-out group-hover:-translate-y-1.5 group-hover:ring-white/25">
+                      <Poster path={film.posterPath} title={film.title} eager={i < 5} className="w-full transition duration-700 ease-out group-hover:scale-[1.04]" />
                     </span>
                   </span>
-                  <span className="mt-3.5 block truncate font-semibold text-white">{film.title}</span>
-                  <span className="mt-0.5 block font-mono text-[11px] uppercase tracking-[0.08em] text-muted">
-                    {[film.releaseYear, film.genres?.[0]].filter(Boolean).join(' · ')}
+                  <span className="mt-4 grid grid-cols-[auto_1fr] gap-x-2.5 sm:gap-x-3">
+                    <span aria-hidden="true" className="font-mono text-[20px] font-semibold leading-[1.05] tracking-[-0.04em] text-white/25 transition duration-300 group-hover:text-neon sm:text-[26px] sm:leading-[0.9]">
+                      {pad2(i + 1)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="line-clamp-3 font-semibold leading-tight text-white">{film.title}</span>
+                      <span className="meta mt-1 block text-[11px]">{metaLine(film.releaseYear, film.genres, { limit: 1 })}</span>
+                    </span>
                   </span>
                 </Link>
               </li>
@@ -409,16 +442,93 @@ function TrendingRail({ films, source, loading }) {
   )
 }
 
+/** One bento card: copy on top, a proportionate mini-UI anchored to the shared bottom line. */
 function Step({ n, title, body, children }) {
   return (
-    <li className="flex flex-col justify-between gap-10 bg-void p-7 sm:p-9" data-reveal style={{ '--i': n - 1 }}>
-      <div>
-        <span className="outline-num block font-display text-6xl font-black leading-none tracking-[-0.05em]">{pad2(n)}</span>
-        <h3 className="mt-8 font-display text-xl font-bold uppercase tracking-tight text-white">{title}</h3>
-        <p className="mt-3 max-w-xs text-muted">{body}</p>
+    <li className="flex flex-col bg-void p-6 sm:p-8" data-reveal style={{ '--i': n - 1 }}>
+      <span className="font-mono text-[13px] font-medium tracking-[0.1em] text-neon">{pad2(n)}</span>
+      <h3 className="t-h3 mt-4">{title}</h3>
+      <p className="mt-3 max-w-xs text-muted">{body}</p>
+      <div aria-hidden="true" className="mt-auto pt-8">
+        <div className="flex h-[176px] flex-col justify-end rounded-[4px] border border-white/[0.07] bg-white/[0.02] p-4">{children}</div>
       </div>
-      <div className="min-h-[4.5rem]">{children}</div>
     </li>
+  )
+}
+
+const ARRIVAL = CATALOG_BY_ID.get(329865)
+const BR2049 = CATALOG_BY_ID.get(335984)
+
+/** Card 1: the composer in miniature: a film, its status, a rating meter. */
+function MiniLog() {
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <Poster path={ARRIVAL.posterPath} title="" size="w92" className="w-9 shrink-0 rounded-[3px] ring-1 ring-white/10" />
+        <div className="min-w-0">
+          <p className="t-film text-[15px] leading-tight">{ARRIVAL.title}</p>
+          <p className="meta mt-1 text-[10.5px]">{metaLine(ARRIVAL.releaseYear, ARRIVAL.genres, { limit: 1 })}</p>
+        </div>
+        <StatusChip status="completed" className="ml-auto" />
+      </div>
+      <div className="mt-4 flex h-11 items-end gap-[3px]">
+        {Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className={`flex-1 ${i < 8 ? 'bg-acid' : 'bg-white/[0.1]'}`} style={{ height: `${28 + i * 8}%` }} />
+        ))}
+      </div>
+      <p className="mt-2.5 flex justify-between font-mono text-[11px] uppercase tracking-[0.12em]">
+        <span className="text-muted">Rating</span>
+        <span className="font-semibold text-acid">8/10 · Great</span>
+      </p>
+    </>
+  )
+}
+
+/** Card 2: a real row from the feed. */
+function MiniFeed({ item }) {
+  if (!item) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-1/2" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+    )
+  }
+  const s = STATUS_STYLES[item.status]
+  return (
+    <>
+      <p className="flex items-center gap-2.5">
+        <Avatar user={item.user} size={26} />
+        <span className="truncate text-[14px] font-semibold text-ink">{item.user.displayName}</span>
+        <span className="ml-auto shrink-0 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted">{timeAgo(item.createdAt)}</span>
+      </p>
+      <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-[14px]">
+        <span className={`font-mono text-[10.5px] uppercase tracking-[0.12em] ${s?.text}`}>{STATUS_VERBS[item.status]}</span>
+        <span className="t-film">{item.film.title}</span>
+        {item.rating ? <span className="font-mono text-[12px] font-semibold text-acid">{item.rating}/10</span> : null}
+      </p>
+      {item.note ? <p className="mt-1.5 line-clamp-2 text-[14px] leading-snug text-slate-300">&ldquo;{item.note}&rdquo;</p> : null}
+      <p className="mt-3 flex items-center gap-1.5 font-mono text-[12px] text-plasma">
+        <Heart className="h-3.5 w-3.5 fill-plasma" strokeWidth={1.75} /> {item.likes || 1}
+      </p>
+    </>
+  )
+}
+
+/** Card 3: a pick card, as For you lays it out. */
+function MiniPick() {
+  return (
+    <div className="flex gap-4">
+      <Poster path={BR2049.posterPath} title="" size="w185" className="w-[88px] shrink-0 rounded-[3px] ring-1 ring-white/10" />
+      <div className="min-w-0">
+        <p className="meta text-[10.5px]">
+          <span className="text-neon">Pick 01</span> · top match
+        </p>
+        <p className="t-film mt-1.5 text-[15px] leading-tight">{BR2049.title}</p>
+        <p className="mt-2 text-[13px] leading-snug text-slate-400">You rated Arrival 8/10. Same director, same slow-burn sci-fi.</p>
+      </div>
+    </div>
   )
 }
 
@@ -426,7 +536,7 @@ function FinalCall({ films, user }) {
   const wall = films.filter((f) => f.posterPath).slice(0, 12)
   return (
     <section className="frame pt-28 sm:pt-36" aria-labelledby="cta">
-      <div className="relative isolate overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] px-6 py-16 sm:px-14 sm:py-20" data-reveal>
+      <div className="relative isolate overflow-hidden rounded-[4px] border border-white/[0.08] bg-white/[0.02] px-6 py-16 sm:px-14 sm:py-20" data-reveal>
         <div aria-hidden="true" className="absolute -right-10 -top-24 bottom-[-6rem] -z-10 hidden w-[46%] rotate-6 grid-cols-3 gap-3 opacity-50 [mask-image:linear-gradient(to_left,black_30%,transparent)] md:grid">
           {[0, 1, 2].map((col) => (
             <div key={col} className="overflow-hidden">
@@ -449,7 +559,7 @@ function FinalCall({ films, user }) {
             </Link>
           ) : (
             <>
-              <DemoButton>Start the demo</DemoButton>
+              <DemoButton />
               <Link to="/signup" className="btn-ghost">
                 Create an account
               </Link>

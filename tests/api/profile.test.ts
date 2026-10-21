@@ -15,7 +15,7 @@ describe('public profiles', () => {
     const res = await call('GET', '/api/users/NOVA')
     expect(res.status).toBe(200)
     expect(res.body.profile).toMatchObject({ username: 'nova', displayName: 'Nova', kind: 'demo', isMe: false })
-    expect(res.body.stats).toMatchObject({ logged: 7, completed: 5, watching: 1, planned: 1, dropped: 0, rated: 5, avgRating: 9 })
+    expect(res.body.stats).toMatchObject({ logged: 7, completed: 5, watching: 1, planned: 1, dropped: 0, rated: 5, avgRating: 7.8 })
     expect(res.body.stats.topGenres[0]).toEqual({ name: 'Science Fiction', count: 7 })
     expect(res.body.entries).toHaveLength(7)
     expect(res.body.activity.length).toBeGreaterThan(0)

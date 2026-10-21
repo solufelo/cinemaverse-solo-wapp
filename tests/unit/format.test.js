@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, pad2, ratingWord, splitPercents, timeAgo } from '../../src/lib/format.js'
+import { groupByDay, metaLine, pad2, pickTakes, ratingWord, splitPercents, timeAgo } from '../../src/lib/format.js'
 
 describe('pad2', () => {
   it('pads single digits for HUD numerals', () => {
@@ -61,5 +61,42 @@ describe('groupByDay', () => {
   it('treats a clock-skewed future post as today and handles an empty feed', () => {
     expect(groupByDay([at(22, 1)], now)[0].label).toBe('Today')
     expect(groupByDay([], now)).toEqual([])
+  })
+})
+
+describe('metaLine', () => {
+  it('drops trailing genres instead of truncating the line', () => {
+    expect(metaLine(2021, ['Science Fiction', 'Adventure'])).toBe('2021 · Sci-Fi · Adventure')
+    expect(metaLine(2023, ['Animation', 'Adventure'], { max: 20 })).toBe('2023 · Animation')
+    expect(metaLine(2019, ['War', 'Drama', 'History'])).toBe('2019 · War · Drama')
+    expect(metaLine(2019, ['War', 'Drama'], { limit: 1 })).toBe('2019 · War')
+  })
+
+  it('always keeps the year and first genre, and skips missing parts', () => {
+    expect(metaLine(1968, ['Science Fiction', 'Mystery'], { max: 5 })).toBe('1968 · Sci-Fi')
+    expect(metaLine(null, ['Drama'])).toBe('Drama')
+    expect(metaLine(2001, [])).toBe('2001')
+  })
+})
+
+describe('pickTakes', () => {
+  const post = (id, film, status, note, hour) => ({ id, film: { tmdbId: film }, status, note, createdAt: `2026-10-20T${String(hour).padStart(2, '0')}:00:00Z` })
+
+  it('prefers takes with different statuses, one per film, newest first', () => {
+    const items = [
+      post('a', 1, 'completed', 'great', 12),
+      post('b', 2, 'completed', 'also great', 11),
+      post('c', 3, 'watching', '', 10),
+      post('d', 4, 'dropped', 'not for me', 9),
+      post('e', 1, 'planned', 'again', 8),
+      post('f', 5, 'planned', 'next week', 7),
+    ]
+    expect(pickTakes(items).map((i) => i.id)).toEqual(['a', 'd', 'f'])
+  })
+
+  it('falls back to repeated statuses, then bare logs', () => {
+    const items = [post('a', 1, 'completed', 'x', 12), post('b', 2, 'completed', 'y', 11), post('c', 3, 'watching', '', 10)]
+    expect(pickTakes(items).map((i) => i.id)).toEqual(['a', 'b', 'c'])
+    expect(pickTakes([])).toEqual([])
   })
 })

@@ -46,6 +46,17 @@ export function groupByDay(items, now = Date.now()) {
   return groups
 }
 
+/**
+ * "2021 · Sci-Fi · Adventure" for a one-line meta row. Genres are dropped from the end until
+ * the line fits `max` characters, so it never needs an ellipsis.
+ */
+export function metaLine(year, genres = [], { max = 30, limit = 2 } = {}) {
+  const short = (g) => (g === 'Science Fiction' ? 'Sci-Fi' : g)
+  const parts = [year, ...(genres ?? []).slice(0, limit).map(short)].filter(Boolean).map(String)
+  while (parts.length > 2 && parts.join(' · ').length > max) parts.pop()
+  return parts.join(' · ')
+}
+
 /** 3 -> "03": HUD-style index numerals. */
 export const pad2 = (n) => String(n).padStart(2, '0')
 
@@ -77,4 +88,27 @@ export function splitPercents(counts) {
     left -= 1
   }
   return out
+}
+
+/**
+ * Three posts for the home page: takes before bare logs, a different status each where the
+ * feed allows (a finish, a drop, a queue), never the same film twice, newest first.
+ */
+export function pickTakes(items, n = 3) {
+  const out = []
+  const films = new Set()
+  const statuses = new Set()
+  const pick = (ok) => {
+    for (const i of items) {
+      if (out.length >= n) return
+      if (films.has(i.film.tmdbId) || !ok(i)) continue
+      out.push(i)
+      films.add(i.film.tmdbId)
+      statuses.add(i.status)
+    }
+  }
+  pick((i) => i.note && !statuses.has(i.status))
+  pick((i) => i.note)
+  pick(() => true)
+  return out.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }

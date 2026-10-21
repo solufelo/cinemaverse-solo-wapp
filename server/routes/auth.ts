@@ -13,6 +13,10 @@ import type { Router } from '../router.ts'
 import { loginSchema, signupSchema } from '../validation.ts'
 
 const authLimiter = createRateLimiter(20, 10 * 60_000)
+
+// Guests get a cinema callsign ("Neon Usher") instead of a hex code; the GUEST tag says what they are.
+const CALLSIGN_A = ['Midnight', 'Neon', 'Velvet', 'Silver', 'Static', 'Matinee', 'Double', 'Late', 'Golden', 'Lunar', 'Crimson', 'Quiet', 'Wide', 'Slow', 'Final', 'Hidden']
+const CALLSIGN_B = ['Usher', 'Projector', 'Reel', 'Splice', 'Marquee', 'Frame', 'Cut', 'Score', 'Lens', 'Ticket', 'Balcony', 'Encore', 'Trailer', 'Montage', 'Credits', 'Popcorn']
 const guestLimiter = createRateLimiter(10, 60 * 60_000)
 
 export function registerAuth(router: Router) {
@@ -68,11 +72,12 @@ export function registerAuth(router: Router) {
     guestLimiter(`guest:${clientIp}`)
     // Housekeeping: expired guests (and, by cascade, their logs and sessions) go away.
     await db.query("delete from users where kind = 'guest' and created_at < now() - interval '24 hours'")
-    const suffix = randomBytes(3).toString('hex')
-    const username = `guest_${suffix}`
+    const bytes = randomBytes(3)
+    const username = `guest_${bytes.toString('hex')}`
+    const callsign = `${CALLSIGN_A[bytes[0] % 16]} ${CALLSIGN_B[bytes[1] % 16]}`
     const [user] = await db.query<{ id: string }>(
       `insert into users (username, display_name, avatar_hue, kind) values ($1, $2, $3, 'guest') returning id`,
-      [username, `Guest ${suffix.toUpperCase()}`, hueFor(username)],
+      [username, callsign, hueFor(username)],
     )
     const cookie = await createSession(db, user.id, req, { guest: true })
     return json({ ok: true, username }, { status: 201, headers: { 'set-cookie': cookie } })

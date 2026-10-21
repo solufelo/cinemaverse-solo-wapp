@@ -8,6 +8,7 @@ import { EmptyState, Poster, RatingInput } from '../components/ui'
 import { useToast } from '../context/ToastContext'
 import { useApi } from '../hooks/useApi'
 import { api } from '../lib/api'
+import { metaLine, plural } from '../lib/format'
 import { getFilm, getTrending, imageUrl, searchFilms } from '../lib/tmdb'
 
 const isPhone = () => window.matchMedia('(max-width: 1023px)').matches
@@ -117,7 +118,7 @@ export default function LogPage() {
               ref={searchRef}
               id="film-search"
               type="search"
-              className="input-field h-16 rounded-lg pl-14 pr-24 text-[19px] [&::-webkit-search-cancel-button]:hidden"
+              className="input-field h-16 pl-14 pr-24 text-[19px] [&::-webkit-search-cancel-button]:hidden"
               placeholder="Search films"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -134,16 +135,11 @@ export default function LogPage() {
               )}
             </span>
           </div>
-          <p className="meta mb-6 mt-8 flex items-center gap-3">
-            <span className="text-slate-300">{query.trim() ? `Results for “${query.trim()}”` : 'Trending now'}</span>
-            {results.source === 'catalog' ? (
-              <>
-                <span className="h-1 w-1 bg-white/25" /> offline catalog
-              </>
-            ) : null}
+          <p className="meta mb-6 mt-8 flex items-center gap-3" data-source={results.source ?? undefined}>
+            <span className="text-slate-300">{query.trim() ? `Results for “${query.trim()}”` : results.source === 'catalog' ? 'Top of the shelf' : 'Trending now'}</span>
             {!results.loading ? (
               <>
-                <span className="h-1 w-1 bg-white/25" /> {results.films.length} films
+                <span className="h-1 w-1 bg-white/25" /> {plural(results.films.length, 'film')}
               </>
             ) : null}
           </p>
@@ -161,9 +157,7 @@ export default function LogPage() {
                 </button>
               }
             >
-              {results.source === 'catalog'
-                ? 'Search covers the offline catalogue until a TMDB key is configured. Try Dune, Arrival or Parasite.'
-                : 'Check the spelling or try the original title.'}
+              {results.source === 'catalog' ? 'Nothing on the shelf matches that. Try Dune, Arrival or Parasite.' : 'Check the spelling or try the original title.'}
             </EmptyState>
           ) : (
             <div className={`grid grid-cols-2 gap-x-4 gap-y-8 transition-opacity duration-300 sm:grid-cols-3 xl:grid-cols-4 ${results.loading ? 'opacity-50' : ''}`}>
@@ -178,7 +172,7 @@ export default function LogPage() {
           {selected ? (
             <>
               <div className="fixed inset-0 z-[55] animate-fade bg-void/75 backdrop-blur-sm lg:hidden" onClick={close} aria-hidden="true" />
-              <div className="fixed inset-x-0 bottom-0 z-[56] max-h-[90svh] overflow-y-auto overscroll-contain rounded-t-2xl max-lg:animate-sheet-in lg:sticky lg:inset-auto lg:top-24 lg:z-auto lg:max-h-none lg:overflow-visible lg:rounded-none">
+              <div className="fixed inset-x-0 bottom-0 z-[56] max-h-[90svh] overflow-y-auto overscroll-contain rounded-t-[12px] max-lg:animate-sheet-in lg:sticky lg:inset-auto lg:top-24 lg:z-auto lg:max-h-none lg:overflow-visible lg:rounded-none">
                 <Composer key={selected.tmdbId} film={selected} existing={mine.get(selected.tmdbId)} onClose={close} onLogged={onLogged} />
               </div>
             </>
@@ -235,7 +229,7 @@ function Composer({ film, existing, onClose, onLogged }) {
   }
 
   return (
-    <form onSubmit={submit} className="overflow-hidden border border-white/10 bg-panel max-lg:rounded-t-2xl max-lg:border-b-0 lg:rounded-xl lg:animate-rise" aria-label={`Log ${film.title}`}>
+    <form onSubmit={submit} className="overflow-hidden border border-white/10 bg-panel max-lg:rounded-t-[12px] max-lg:border-b-0 lg:rounded-[4px] lg:animate-rise" aria-label={`Log ${film.title}`}>
       <div className="relative h-32 overflow-hidden sm:h-40">
         {backdrop ? <img src={backdrop} alt="" className="h-full w-full object-cover opacity-70" /> : <div className="grid-bg h-full w-full" />}
         <div className="scanlines absolute inset-0 opacity-50" />
@@ -252,7 +246,7 @@ function Composer({ film, existing, onClose, onLogged }) {
             {existing ? `On your list · ${STATUS_LABELS[existing.status]}` : 'Locked in'}
           </p>
           <h2 className="t-film mt-2 text-[21px] leading-tight">{film.title}</h2>
-          <p className="meta mt-1.5 truncate">{[film.releaseYear, ...(film.genres ?? []).slice(0, 2)].filter(Boolean).join(' · ')}</p>
+          <p className="meta mt-1.5">{metaLine(film.releaseYear, film.genres, { max: 26 })}</p>
         </div>
       </div>
 

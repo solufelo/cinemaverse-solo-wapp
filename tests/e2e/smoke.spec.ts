@@ -4,10 +4,13 @@ test('visitor browses the seeded feed and a profile, then logs a film as a guest
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(String(e)))
 
-  // Home: hero, offline trending catalog, and a populated feed from the demo seed.
+  // Home: hero, the curated shelf (no TMDB key here), and a populated feed from the demo seed.
+  // Setup state never shows as copy; it is only a data attribute.
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Log films')
-  await expect(page.getByText('Offline catalog')).toBeVisible()
+  await expect(page.locator('[data-source="catalog"]')).toBeAttached()
+  await expect(page.getByRole('heading', { name: 'Top of the shelf' })).toBeVisible()
+  await expect(page.getByText(/TMDB key|offline catalog/i)).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Recent feed' })).toBeVisible()
   await expect(page.locator('article').first()).toContainText('Dune: Part Two')
 
@@ -57,10 +60,11 @@ test('visitor browses the seeded feed and a profile, then logs a film as a guest
   await card.getByRole('radio', { name: 'Watching' }).click()
   await expect(page.getByText(/Posted to the feed/)).toBeVisible()
 
-  // Recommendations fall back to taste-match without an OpenRouter key, and say so.
+  // Recommendations fall back to taste-match without an OpenRouter key, in product words.
   await page.goto('/for-you')
   await expect(page.getByText('Taste-match picks')).toBeVisible()
-  await expect(page.getByText(/No AI key is configured/)).toBeVisible()
+  await expect(page.getByText(/Picks from your ratings and the squad/)).toBeVisible()
+  await expect(page.getByText(/AI key/)).toHaveCount(0)
   const queue = page.getByRole('button', { name: 'Queue it' }).first()
   await queue.click()
   await expect(page.getByRole('button', { name: 'Queued' }).first()).toBeVisible()

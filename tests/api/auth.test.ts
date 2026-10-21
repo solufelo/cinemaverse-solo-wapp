@@ -87,6 +87,8 @@ describe('auth API', () => {
     expect(res.body.username).toMatch(/^guest_[0-9a-f]{6}$/)
     const me = await call('GET', '/api/auth/me', { cookie: res.cookie })
     expect(me.body.user).toMatchObject({ kind: 'guest', email: null })
+    // A readable callsign, not a hex code.
+    expect(me.body.user.displayName).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/)
   })
 
   it('grants admin only to emails listed in ADMIN_EMAILS', async () => {

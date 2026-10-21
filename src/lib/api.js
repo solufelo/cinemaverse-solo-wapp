@@ -32,7 +32,8 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
   }
   if (!res.ok) {
     const e = data?.error
-    throw new ApiError(res.status, e?.message || `Request failed (${res.status}).`, e?.code, e?.details?.fields)
+    const fallback = res.status >= 500 ? 'Our server hit a snag. Try again in a few seconds.' : "That didn't work. Try again."
+    throw new ApiError(res.status, e?.message || fallback, e?.code, e?.details?.fields)
   }
   return data
 }

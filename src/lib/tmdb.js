@@ -8,6 +8,27 @@ export function imageUrl(path, size = 'w342') {
   return path ? `${IMG}${size}${path}` : null
 }
 
+/**
+ * Where the subject sits in each catalogue backdrop (CSS object-position), so a crop for a
+ * narrow or wide banner keeps the face or the action instead of a torso. Anything else
+ * (live TMDB films) gets the default, which favours the upper middle where faces usually are.
+ */
+const FOCUS = {
+  693134: '42% 30%',
+  569094: '62% 45%',
+  4977: '55% 35%',
+  496243: '50% 40%',
+  940721: '45% 45%',
+  244786: '20% 40%',
+  438631: '62% 40%',
+  335984: '45% 30%',
+  238: '35% 30%',
+  155: '30% 30%',
+  78: '40% 35%',
+  545611: '45% 40%',
+}
+export const backdropFocus = (tmdbId) => FOCUS[tmdbId] ?? '50% 35%'
+
 /** TMDB result -> the film shape the app and API use. */
 export function normalizeFilm(m) {
   return {

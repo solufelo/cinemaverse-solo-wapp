@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Heart, Plus, Trash2 } from 'lucide-react'
+import { Heart, Trash2 } from 'lucide-react'
 import { STATUS_VERBS } from '../../shared/constants.ts'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
-import { Avatar, KindTag, PlayerLink, Poster, RatingBar, STATUS_STYLES, Skeleton, StatusChip } from './ui'
+import { Avatar, KindTag, Poster, RatingBar, STATUS_STYLES, Skeleton, StatusChip } from './ui'
 
 function useLike(item) {
   const { user } = useAuth()
@@ -104,57 +104,70 @@ function DeleteButton({ item, onRemoved }) {
   )
 }
 
+/** Who posted: avatar, name, demo/guest tag. Same line on both row types. */
+function Byline({ user }) {
+  return (
+    <p className="flex min-w-0 items-center gap-2 text-[14px]">
+      <Link to={`/u/${user.username}`} className="group/player flex min-w-0 items-center gap-2 py-0.5">
+        <Avatar user={user} size={22} />
+        <span className="truncate font-semibold text-slate-200 transition group-hover/player:text-neon">{user.displayName}</span>
+      </Link>
+      <KindTag kind={user.kind} />
+    </p>
+  )
+}
+
+/** Time, like and delete: always the top-right cluster, so the heart never moves between rows. */
+function RowActions({ item, onRemoved }) {
+  return (
+    <div className="flex flex-col items-end gap-0.5 self-start sm:-mt-[7px] sm:flex-row sm:items-center sm:gap-2">
+      <Stamp iso={item.createdAt} className="pt-1 sm:mr-1 sm:pt-0" />
+      <span className="flex items-center">
+        <LikeButton item={item} />
+        <DeleteButton item={item} onRemoved={onRemoved} />
+      </span>
+    </div>
+  )
+}
+
+function Headline({ item, logHref, size }) {
+  const s = STATUS_STYLES[item.status]
+  return (
+    <h3 className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
+      <span className={`shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] ${s?.text}`}>{STATUS_VERBS[item.status]}</span>
+      <Link to={logHref} className={`t-film leading-tight transition hover:text-neon ${size}`}>
+        {item.film.title}
+      </Link>
+      {item.film.releaseYear ? <span className="font-mono text-[12px] text-muted">{item.film.releaseYear}</span> : null}
+      <RatingBar rating={item.rating} className="sm:ml-1" />
+    </h3>
+  )
+}
+
+/** A post with a take: the same header line as a log entry, plus the poster and the take. */
 function TakeEntry({ item, onRemoved }) {
   const logHref = `/log?film=${item.film.tmdbId}`
   const accent = STATUS_STYLES[item.status]?.bar
 
   return (
-    <article className="group relative grid grid-cols-[72px_1fr] gap-x-4 border-b border-white/[0.07] py-7 sm:grid-cols-[120px_1fr] sm:grid-rows-[auto_auto_1fr] sm:gap-x-8 sm:py-9" data-reveal>
-      <Link to={logHref} className="relative block self-start sm:row-span-3" aria-label={`Log ${item.film.title}`}>
+    <article className="group relative grid grid-cols-[56px_1fr_auto] gap-x-4 border-b border-white/[0.07] py-6 sm:grid-cols-[88px_1fr_auto] sm:gap-x-6 sm:py-7" data-reveal>
+      <Link to={logHref} className="relative block self-start sm:row-span-2" aria-label={`Log ${item.film.title}`}>
         <span className="lock-on hud-corners block" style={{ '--inset': '-5px', '--corner-len': '10px' }}>
-          <Poster path={item.film.posterPath} title={item.film.title} size="w185" className="w-full rounded-[4px] transition duration-500 ease-out group-hover:brightness-110" />
+          <Poster path={item.film.posterPath} title={item.film.title} size="w185" className="w-full rounded-[4px] ring-1 ring-white/10 transition duration-500 ease-out group-hover:brightness-110" />
         </span>
         <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[3px] rounded-b-[4px]" style={{ background: accent }} />
       </Link>
 
       <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <PlayerLink user={item.user} />
-          <KindTag kind={item.user.kind} />
-          <Stamp iso={item.createdAt} className="ml-auto hidden sm:block" />
-        </div>
-
-        <h3 className="mt-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 sm:mt-4">
-          <span className="sr-only">
-            {item.user.displayName} {STATUS_VERBS[item.status]}{' '}
-          </span>
-          <Link to={logHref} className="t-film text-[17px] leading-tight transition hover:text-neon sm:text-[19px]">
-            {item.film.title}
-          </Link>
-          {item.film.releaseYear ? <span className="font-mono text-[12px] text-muted">{item.film.releaseYear}</span> : null}
-        </h3>
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <StatusChip status={item.status} />
-          <RatingBar rating={item.rating} />
-        </div>
+        <Byline user={item.user} />
+        <Headline item={item} logHref={logHref} size="text-[16px] sm:text-[18px]" />
       </div>
+      <RowActions item={item} onRemoved={onRemoved} />
 
-      {/* The take is the content: it spans under the poster on phones, beside it on wider screens. */}
-      <blockquote className="col-span-2 mt-5 border-l-2 pl-4 sm:col-span-1 sm:col-start-2 sm:mt-6 sm:pl-5" style={{ borderColor: accent }}>
-        <p className="max-w-[46ch] text-[18px] font-medium leading-[1.45] text-white sm:text-[21px]">{item.note}</p>
+      {/* The take is the content: full width under the row on phones, beside the poster on wider screens. */}
+      <blockquote className="col-span-3 mt-4 border-l-2 pl-4 sm:col-span-2 sm:col-start-2 sm:mt-3 sm:pl-5" style={{ borderColor: accent }}>
+        <p className="max-w-[46ch] text-[17px] font-medium leading-[1.45] text-white sm:text-[19px]">{item.note}</p>
       </blockquote>
-
-      <div className="col-span-2 mt-4 flex items-center gap-1 self-start sm:col-span-1 sm:col-start-2 sm:mt-5">
-        <LikeButton item={item} />
-        <Link to={logHref} className="inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted transition hover:text-neon">
-          <Plus className="h-4 w-4" /> Log this film
-        </Link>
-        {/* On phones the time moves down here so the player's name keeps its room. */}
-        <Stamp iso={item.createdAt} className="ml-auto pr-1 sm:hidden" />
-        <span className="sm:ml-auto">
-          <DeleteButton item={item} onRemoved={onRemoved} />
-        </span>
-      </div>
     </article>
   )
 }
@@ -164,34 +177,16 @@ function LogLine({ item, onRemoved }) {
   const logHref = `/log?film=${item.film.tmdbId}`
   const s = STATUS_STYLES[item.status]
   return (
-    <article className="group relative grid grid-cols-[44px_1fr_auto] items-center gap-x-4 border-b border-white/[0.07] py-4 sm:grid-cols-[56px_1fr_auto] sm:gap-x-6 sm:py-5" data-reveal>
-      <Link to={logHref} className="relative block" aria-label={`Log ${item.film.title}`}>
+    <article className="group relative grid grid-cols-[56px_1fr_auto] items-start gap-x-4 border-b border-white/[0.07] py-5 sm:grid-cols-[88px_1fr_auto] sm:gap-x-6" data-reveal>
+      <Link to={logHref} className="relative block w-11 sm:w-14" aria-label={`Log ${item.film.title}`}>
         <Poster path={item.film.posterPath} title={item.film.title} size="w92" className="w-full rounded-[3px] ring-1 ring-white/10 transition duration-300 group-hover:ring-white/30" />
         <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[2px]" style={{ background: s?.bar }} />
       </Link>
       <div className="min-w-0">
-        <p className="flex min-w-0 items-center gap-2 text-[14px]">
-          <Link to={`/u/${item.user.username}`} className="truncate font-semibold text-slate-200 transition hover:text-neon">
-            {item.user.displayName}
-          </Link>
-          <KindTag kind={item.user.kind} />
-        </p>
-        <h3 className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <span className={`shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] ${s?.text}`}>{STATUS_VERBS[item.status]}</span>
-          <Link to={logHref} className="t-film truncate text-[16px] leading-tight transition hover:text-neon sm:text-[17px]">
-            {item.film.title}
-          </Link>
-          {item.film.releaseYear ? <span className="font-mono text-[12px] text-muted">{item.film.releaseYear}</span> : null}
-          <RatingBar rating={item.rating} className="sm:ml-1" />
-        </h3>
+        <Byline user={item.user} />
+        <Headline item={item} logHref={logHref} size="text-[16px] sm:text-[17px]" />
       </div>
-      <div className="flex flex-col items-end gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-        <Stamp iso={item.createdAt} className="sm:mr-1" />
-        <span className="flex items-center">
-          <LikeButton item={item} />
-          <DeleteButton item={item} onRemoved={onRemoved} />
-        </span>
-      </div>
+      <RowActions item={item} onRemoved={onRemoved} />
     </article>
   )
 }
@@ -251,7 +246,7 @@ export function TakeCard({ item, index = 0 }) {
           <Link to={`/u/${item.user.username}`} className="mt-1 flex items-center gap-2 text-sm text-muted transition hover:text-white">
             <Avatar user={item.user} size={18} />
             <span className="truncate">{item.user.displayName}</span>
-            {item.rating ? <span className="font-display text-[12px] font-bold text-acid">{item.rating}/10</span> : null}
+            {item.rating ? <span className="font-mono text-[12px] font-semibold text-acid">{item.rating}/10</span> : null}
           </Link>
         </div>
       </div>
@@ -266,7 +261,7 @@ export function ActivitySkeleton({ count = 3 }) {
       {Array.from({ length: count }, (_, i) =>
         // Same alternating shapes as the real feed: a take, then a log line.
         i % 2 === 0 ? (
-          <div key={i} className="grid grid-cols-[72px_1fr] gap-4 border-b border-white/[0.07] py-7 sm:grid-cols-[120px_1fr] sm:gap-8 sm:py-9" style={{ opacity: 1 - i * 0.15 }}>
+          <div key={i} className="grid grid-cols-[56px_1fr] gap-4 border-b border-white/[0.07] py-6 sm:grid-cols-[88px_1fr] sm:gap-6 sm:py-7" style={{ opacity: 1 - i * 0.15 }}>
             <Skeleton className="aspect-[2/3] w-full rounded-[4px]" />
             <div className="space-y-4 pt-1">
               <div className="flex items-center gap-2.5">
@@ -280,8 +275,8 @@ export function ActivitySkeleton({ count = 3 }) {
             </div>
           </div>
         ) : (
-          <div key={i} className="grid grid-cols-[44px_1fr] items-center gap-4 border-b border-white/[0.07] py-4 sm:grid-cols-[56px_1fr] sm:gap-6 sm:py-5" style={{ opacity: 1 - i * 0.15 }}>
-            <Skeleton className="aspect-[2/3] w-full rounded-[3px]" />
+          <div key={i} className="grid grid-cols-[56px_1fr] items-start gap-4 border-b border-white/[0.07] py-5 sm:grid-cols-[88px_1fr] sm:gap-6" style={{ opacity: 1 - i * 0.15 }}>
+            <Skeleton className="aspect-[2/3] w-11 rounded-[3px] sm:w-14" />
             <div className="space-y-2.5">
               <Skeleton className="h-3.5 w-40" />
               <Skeleton className="h-4 w-1/3" />

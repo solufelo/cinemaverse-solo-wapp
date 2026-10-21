@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { Pencil, Plus, UserX } from 'lucide-react'
+import { Pencil, Plus, Radio, Tags, UserX } from 'lucide-react'
 import { BIO_MAX, DISPLAY_NAME_MAX, STATUS_LABELS, WATCH_STATUSES } from '../../shared/constants.ts'
 import ActivityCard from '../components/ActivityCard'
-import { Avatar, EmptyState, ErrorState, KindTag, Poster, Skeleton, STATUS_STYLES } from '../components/ui'
+import { Avatar, EmptyState, ErrorState, KindTag, MiniEmpty, Poster, Skeleton, STATUS_STYLES, StatusMark } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useApi } from '../hooks/useApi'
 import { api } from '../lib/api'
-import { memberSince, splitPercents } from '../lib/format'
-import { imageUrl } from '../lib/tmdb'
+import { memberSince, pad2, splitPercents } from '../lib/format'
+import { backdropFocus, imageUrl } from '../lib/tmdb'
+
+// Banner geometry with art, shared with the skeleton so loading never shifts the page.
+const BANNER_ART = 'min-h-[420px] pt-40 lg:min-h-[440px] lg:pt-24'
 
 /** /profile -> your own public page (or sign in). */
 export function MyProfileRedirect() {
@@ -54,26 +57,37 @@ function ProfilePage({ username }) {
 
   const { profile, stats, spotlight, entries, activity } = res.data
   const shelfEntries = shelf === 'all' ? entries : entries.filter((e) => e.status === shelf)
-  const backdrop = imageUrl(spotlight?.backdropPath, 'w1280')
+  const art = spotlight?.backdropPath
   const hue = profile.avatarHue
 
   return (
     <main>
       <section className="relative isolate overflow-hidden border-b border-white/[0.06]">
         <div aria-hidden="true" className="absolute inset-0 -z-10">
-          {backdrop ? <img src={backdrop} alt="" fetchpriority="high" className="ken-burns absolute inset-0 h-full w-full object-cover object-[60%_35%] opacity-60 grayscale-[0.55]" /> : null}
+          {/* The still keeps to the right (and, on phones, the top) and fades out before the text, so a face never sits under the name or avatar. */}
+          {art ? (
+            <img
+              src={imageUrl(art, 'w1280')}
+              srcSet={`${imageUrl(art, 'w780')} 780w, ${imageUrl(art, 'w1280')} 1280w, ${imageUrl(art, 'original')} 2400w`}
+              sizes="(min-width: 1024px) 62vw, 100vw"
+              alt=""
+              fetchpriority="high"
+              style={{ objectPosition: backdropFocus(spotlight.tmdbId) }}
+              className="absolute right-0 top-0 h-[64%] w-[80%] object-cover opacity-80 grayscale-[0.3] [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_40%),linear-gradient(to_bottom,black_30%,transparent)] lg:h-full lg:w-[62%] lg:[mask-image:linear-gradient(to_right,transparent,black_40%)]"
+            />
+          ) : null}
           {/* Tint the banner in the player's own hue, so every profile reads as theirs whatever the film. */}
           <div className="absolute inset-0 mix-blend-color" style={{ background: `hsla(${hue}, 90%, 55%, 0.38)` }} />
-          <div className="scanlines absolute inset-0 opacity-50" />
-          <div className="absolute inset-0 bg-gradient-to-r from-void via-void/75 to-void/0" />
-          <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-void via-void/60 to-transparent" />
+          <div className="scanlines absolute inset-0 opacity-30" />
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent" />
           <div className="absolute inset-0" style={{ background: `radial-gradient(60% 80% at 0% 100%, hsla(${hue}, 95%, 60%, 0.18), transparent 70%)` }} />
         </div>
 
-        <div className="frame flex min-h-[400px] flex-col justify-end gap-8 pb-12 pt-24 sm:min-h-[440px] lg:flex-row lg:items-end lg:justify-between">
+        <div className={`frame flex flex-col justify-end gap-8 pb-12 lg:flex-row lg:items-end lg:justify-between ${art ? BANNER_ART : 'pt-14 sm:pt-20'}`}>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
-            <span className="hud-corners inline-flex self-start sm:self-end" style={{ '--inset': '-8px', '--corner': `hsl(${hue} 95% 64%)` }}>
-              <Avatar user={profile} size={104} />
+            {/* Brackets sit inside the avatar's box so they stay on the page gutter. */}
+            <span className="hud-corners inline-flex self-start p-2 sm:self-end" style={{ '--inset': '0px', '--corner': `hsl(${hue} 95% 64%)` }}>
+              <Avatar user={profile} size={96} />
             </span>
             <div className="min-w-0">
               <p className="hud-label" style={{ '--mark': `hsl(${hue} 95% 64%)` }}>
@@ -88,7 +102,7 @@ function ProfilePage({ username }) {
           <div className="flex flex-col items-start gap-4 lg:items-end">
             {profile.isMe ? <EditProfile profile={profile} onSaved={res.reload} /> : null}
             {spotlight ? (
-              <Link to={`/log?film=${spotlight.tmdbId}`} className="meta transition hover:text-white">
+              <Link to={`/log?film=${spotlight.tmdbId}`} className="meta py-1 transition hover:text-white">
                 Banner <span className="text-slate-600">/</span> <span className="text-slate-300">{spotlight.title}</span>
               </Link>
             ) : null}
@@ -96,19 +110,21 @@ function ProfilePage({ username }) {
         </div>
       </section>
 
-      <Stats stats={stats} />
+      <Stats stats={stats} isMe={profile.isMe} />
 
       <div className="frame mt-20 grid gap-16 lg:grid-cols-12 lg:gap-12">
         <section aria-labelledby="shelves" className="min-w-0 lg:col-span-8">
           <h2 id="shelves" className="t-h2 mb-8">
             Shelves
           </h2>
-          <div className="tabs mb-8" role="tablist" aria-label="Shelf">
+          <div className="tabs tabs-seg mb-8" role="tablist" aria-label="Shelf">
             <button type="button" role="tab" className="tab" aria-selected={shelf === 'all'} onClick={() => setShelf('all')}>
+              <span className="h-2 w-2 bg-current sm:hidden" aria-hidden="true" />
               All <span className="tab-count">{entries.length}</span>
             </button>
             {WATCH_STATUSES.filter((s) => stats[s] > 0).map((s) => (
               <button key={s} type="button" role="tab" className="tab" aria-selected={shelf === s} onClick={() => setShelf(s)}>
+                <StatusMark status={s} className={STATUS_STYLES[s].text} />
                 {STATUS_LABELS[s]} <span className="tab-count">{stats[s]}</span>
               </button>
             ))}
@@ -137,14 +153,17 @@ function ProfilePage({ username }) {
                         <Poster path={e.posterPath} title={e.title} className="w-full" />
                         <span aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[3px] ${STATUS_STYLES[e.status].bg}`} />
                         {e.rating ? (
-                          <span className="absolute right-1.5 top-1.5 rounded-[3px] bg-void/85 px-1.5 py-1 font-display text-[10px] font-bold leading-none text-acid backdrop-blur">
+                          <span className="absolute right-1.5 top-1.5 rounded-[3px] bg-void/85 px-1.5 py-1 font-mono text-[11px] font-semibold leading-none text-acid backdrop-blur">
                             {e.rating}
                           </span>
                         ) : null}
                       </span>
                     </span>
-                    <span className="mt-2.5 block truncate text-[14px] font-semibold text-slate-200 transition group-hover:text-white">{e.title}</span>
-                    <span className={`block font-mono text-[10px] uppercase tracking-[0.12em] ${STATUS_STYLES[e.status].text}`}>{STATUS_LABELS[e.status]}</span>
+                    <span className="mt-2.5 line-clamp-3 text-[14px] font-semibold leading-snug text-slate-200 transition group-hover:text-white">{e.title}</span>
+                    <span className={`mt-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] ${STATUS_STYLES[e.status].text}`}>
+                      <StatusMark status={e.status} />
+                      {STATUS_LABELS[e.status]}
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -157,7 +176,18 @@ function ProfilePage({ username }) {
             Recent
           </h2>
           {activity.length === 0 ? (
-            <p className="border-t border-white/[0.07] pt-5 text-muted">No activity yet.</p>
+            <MiniEmpty
+              icon={Radio}
+              action={
+                profile.isMe ? (
+                  <Link to="/log" className="link-arrow shrink-0">
+                    Log <Plus className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null
+              }
+            >
+              {profile.isMe ? 'Your logs and status changes land here.' : 'No logs or status changes yet.'}
+            </MiniEmpty>
           ) : (
             <div className="divide-y divide-white/[0.06] border-t border-white/[0.07]">
               {activity.slice(0, 6).map((item) => (
@@ -171,29 +201,35 @@ function ProfilePage({ username }) {
   )
 }
 
-/** HUD readout: four numerals, the status split and top genres. */
-function Stats({ stats }) {
+/**
+ * HUD readout: four numerals, then the status split and top genres on the same four-column
+ * grid, so the split bar ends exactly at the second divider.
+ */
+function Stats({ stats, isMe }) {
   const total = stats.logged || 0
   const pct = splitPercents(Object.fromEntries(WATCH_STATUSES.map((s) => [s, stats[s] || 0])))
   const tiles = [
-    ['Logged', total, 'text-white'],
-    ['Completed', stats.completed, 'text-acid'],
+    ['Logged', pad2(total), 'text-white'],
+    ['Completed', pad2(stats.completed || 0), 'text-acid'],
     ['Avg rating', stats.avgRating ? Number(stats.avgRating).toFixed(1) : '—', 'text-acid'],
-    ['Watching', stats.watching, 'text-neon'],
+    ['Watching', pad2(stats.watching || 0), 'text-neon'],
   ]
   return (
     <section aria-label="Stats" className="border-b border-white/[0.06]">
       <div className="frame">
-        <dl className="grid grid-cols-2 border-white/[0.06] md:grid-cols-4 md:divide-x md:divide-white/[0.06]">
+        <dl className="grid grid-cols-2 md:grid-cols-4">
           {tiles.map(([label, value, color], i) => (
-            <div key={label} className={`py-7 md:px-8 md:first:pl-0 ${i < 2 ? 'border-b border-white/[0.06] md:border-b-0' : ''}`}>
+            <div
+              key={label}
+              className={`border-white/[0.06] py-7 md:px-8 md:first:pl-0 ${i % 2 ? 'border-l pl-6' : ''} ${i === 2 ? 'md:border-l' : ''} ${i < 2 ? 'border-b md:border-b-0' : ''}`}
+            >
               <dt className="meta">{label}</dt>
-              <dd className={`t-num mt-3 text-4xl sm:text-5xl ${color}`}>{value}</dd>
+              <dd className={`t-num mt-3 text-[2.5rem] leading-none sm:text-5xl ${total ? color : 'text-slate-600'}`}>{value}</dd>
             </div>
           ))}
         </dl>
-        <div className="grid gap-8 border-t border-white/[0.06] py-8 md:grid-cols-12">
-          <div className="md:col-span-7">
+        <div className="grid border-t border-white/[0.06] md:grid-cols-4">
+          <div className="py-8 md:col-span-2 md:pr-8">
             <p className="meta">Status split</p>
             <div
               className="mt-4 flex h-2 gap-[3px] overflow-hidden"
@@ -209,23 +245,25 @@ function Stats({ stats }) {
             <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] uppercase tracking-[0.1em] text-muted">
               {WATCH_STATUSES.map((s) => (
                 <li key={s} className="flex items-center gap-2">
-                  <span className={`h-1.5 w-1.5 ${STATUS_STYLES[s].bg}`} />
+                  <StatusMark status={s} className={STATUS_STYLES[s].text} />
                   {STATUS_LABELS[s]} <span className="tabular-nums text-slate-200">{stats[s]}</span>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="md:col-span-4 md:col-start-9">
+          <div className="border-t border-white/[0.06] py-8 md:col-span-2 md:border-l md:border-t-0 md:pl-8">
             <p className="meta">Top genres</p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4">
               {stats.topGenres.length ? (
-                stats.topGenres.map((g) => (
-                  <span key={g.name} className="rounded-[3px] border border-white/10 px-2.5 py-1 text-[14px] text-slate-200">
-                    {g.name} <span className="font-mono text-[12px] text-muted">{g.count}</span>
-                  </span>
-                ))
+                <div className="flex flex-wrap gap-2">
+                  {stats.topGenres.map((g) => (
+                    <span key={g.name} className="rounded-[3px] border border-white/10 px-2.5 py-1 text-[14px] text-slate-200">
+                      {g.name} <span className="font-mono text-[12px] text-muted">{g.count}</span>
+                    </span>
+                  ))}
+                </div>
               ) : (
-                <span className="text-sm text-muted">Log a few films to see this.</span>
+                <MiniEmpty icon={Tags}>{isMe ? 'Log a few films and your top genres show up here.' : 'Shows up once a few films are logged.'}</MiniEmpty>
               )}
             </div>
           </div>
@@ -253,7 +291,7 @@ function EditProfile({ profile, onSaved }) {
   }
   return (
     <form
-      className="w-full animate-rise space-y-4 rounded-xl border border-white/10 bg-void/90 p-5 backdrop-blur-xl sm:w-80"
+      className="w-full animate-rise space-y-4 rounded-[4px] border border-white/10 bg-void/90 p-5 backdrop-blur-xl sm:w-80"
       onSubmit={async (e) => {
         e.preventDefault()
         setSaving(true)
@@ -298,27 +336,37 @@ function EditProfile({ profile, onSaved }) {
   )
 }
 
+/** Same boxes as the loaded page (banner with art, then the stat tiles), so nothing jumps. */
 function ProfileSkeleton() {
   return (
-    <main aria-busy="true" aria-label="Loading profile">
-      <div className="border-b border-white/[0.06]">
-        <div className="frame flex min-h-[440px] flex-col justify-end gap-6 pb-12 sm:min-h-[500px] sm:flex-row sm:items-end">
-          <Skeleton className="h-[104px] w-[104px] rounded-full" />
-          <div className="flex-1 space-y-4">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-12 w-72 max-w-full" />
-            <Skeleton className="h-3 w-24" />
+    // Fills the screen so the footer never sits in view and jumps when the shelves arrive.
+    <main aria-busy="true" aria-label="Loading profile" className="min-h-[100svh]">
+      <section className="border-b border-white/[0.06]">
+        <div className={`frame flex flex-col justify-end gap-8 pb-12 ${BANNER_ART}`}>
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
+            <span className="p-2">
+              <Skeleton className="h-24 w-24 rounded-full" />
+            </span>
+            <div className="flex-1 space-y-4">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-12 w-72 max-w-full" />
+              <Skeleton className="h-3 w-24" />
+            </div>
           </div>
         </div>
-      </div>
-      <div className="frame grid grid-cols-2 gap-8 py-8 md:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="space-y-3">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-10 w-16" />
+      </section>
+      <section className="border-b border-white/[0.06]">
+        <div className="frame">
+          <div className="grid grid-cols-2 md:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className={`py-7 md:px-8 md:first:pl-0 ${i % 2 ? 'pl-6' : ''}`}>
+                <Skeleton className="h-[17px] w-20" />
+                <Skeleton className="mt-3 h-10 w-16 sm:h-12" />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      </section>
     </main>
   )
 }

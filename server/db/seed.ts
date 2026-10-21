@@ -7,6 +7,7 @@ import type { Db } from './index.ts'
  * Demo community: six fictional players (kind = 'demo', no password, can't be signed into)
  * whose watch logs fill the feed, profiles and recommendation pool on a fresh database.
  * Every demo profile is labelled "Demo" in the UI. Timestamps are relative to seed time.
+ * Ratings spread from 5 to 10 the way real logs do, and a drop and a queue carry takes too.
  */
 type SeedEntry = [tmdbId: number, status: WatchStatus, rating: number | null, note: string, hoursAgo: number]
 
@@ -23,13 +24,13 @@ export const DEMO_USERS: {
     hue: 185,
     bio: 'Sci-fi or bust. Slowly rewatching every Villeneuve.',
     entries: [
-      [693134, 'completed', 10, 'IMAX rewatch. The black-and-white arena sequence is still unreal.', 0.3],
+      [693134, 'completed', 9, 'IMAX rewatch. The black-and-white arena sequence is still unreal.', 0.3],
       [157336, 'watching', null, 'Docking scene coming up. Volume all the way up.', 5],
-      [62, 'planned', null, 'Finally doing it this weekend.', 30],
-      [329865, 'completed', 9, 'Quiet, patient, devastating.', 50],
-      [335984, 'completed', 9, '', 120],
-      [603, 'completed', 9, '', 160],
-      [438631, 'completed', 8, '', 200],
+      [62, 'planned', null, 'Finally doing it this weekend, on the biggest screen I can find.', 30],
+      [329865, 'completed', 8, 'Quiet, patient, devastating.', 50],
+      [335984, 'completed', 7, '', 120],
+      [603, 'completed', 8, '', 160],
+      [438631, 'completed', 7, '', 200],
     ],
   },
   {
@@ -38,13 +39,13 @@ export const DEMO_USERS: {
     hue: 320,
     bio: 'Animation is cinema. Will defend Spider-Verse in the comments.',
     entries: [
-      [569094, 'completed', 10, 'Every frame is a poster.', 2],
+      [569094, 'completed', 9, 'Every frame is a poster.', 2],
+      [4977, 'planned', null, 'Recommended by @cinema_ghost. Queued for Friday.', 3],
       [4935, 'watching', null, '', 9],
       [315162, 'completed', 8, 'The wolf scenes are genuinely scary.', 26],
-      [4977, 'planned', null, 'Recommended by @cinema_ghost.', 44],
       [1022789, 'planned', null, '', 70],
       [129, 'completed', 9, '', 90],
-      [324857, 'completed', 10, '', 140],
+      [324857, 'completed', 8, '', 140],
     ],
   },
   {
@@ -53,12 +54,12 @@ export const DEMO_USERS: {
     hue: 265,
     bio: 'Old films, late nights, no phone.',
     entries: [
+      [466420, 'dropped', null, 'Gave it an hour. Not a weeknight film.', 2.5],
       [37165, 'watching', null, '', 3.5],
-      [78, 'completed', 9, 'Tears in rain. Still undefeated.', 7],
-      [466420, 'dropped', null, 'Will come back to it. Not a weeknight film.', 36],
+      [78, 'completed', 8, 'Tears in rain. Still undefeated.', 7],
       [4977, 'completed', 9, 'Satoshi Kon was decades ahead.', 60],
-      [194, 'completed', 8, '', 100],
-      [238, 'completed', 10, '', 180],
+      [194, 'completed', 7, '', 100],
+      [238, 'completed', 9, '', 180],
       [62, 'completed', 10, '', 210],
     ],
   },
@@ -69,12 +70,12 @@ export const DEMO_USERS: {
     bio: 'Crime, heists and anything with a long take.',
     entries: [
       [530915, 'watching', null, '', 1.2],
-      [155, 'completed', 10, "The interrogation scene. That's the whole note.", 12],
-      [496243, 'completed', 10, 'Watch it knowing nothing.', 80],
-      [872585, 'completed', 9, '', 110],
-      [680, 'completed', 9, '', 150],
-      [27205, 'completed', 8, '', 190],
-      [550, 'dropped', null, '', 230],
+      [155, 'completed', 8, "The interrogation scene. That's the whole note.", 12],
+      [550, 'dropped', null, 'Rewatched it at 35. It did not age well, or I did.', 22],
+      [496243, 'completed', 9, 'Watch it knowing nothing.', 80],
+      [872585, 'completed', 7, 'Three hours that felt like two. The sound carries it.', 110],
+      [680, 'completed', 8, '', 150],
+      [27205, 'completed', 6, '', 190],
     ],
   },
   {
@@ -83,13 +84,13 @@ export const DEMO_USERS: {
     hue: 140,
     bio: "If it's big and stomping, I'm in.",
     entries: [
-      [940721, 'completed', 10, 'Best Godzilla film. Not close.', 4],
+      [940721, 'completed', 9, 'Best Godzilla film. Not close.', 4],
       [120, 'watching', null, 'Extended edition. Pray for me.', 15],
       [693134, 'planned', null, '', 20],
-      [76341, 'completed', 10, '', 66],
-      [361743, 'completed', 8, '', 130],
-      [263115, 'completed', 9, '', 175],
-      [105, 'completed', 9, '', 205],
+      [76341, 'completed', 8, '', 66],
+      [361743, 'completed', 6, 'Great in the jets, flat on the ground.', 130],
+      [263115, 'completed', 7, '', 175],
+      [105, 'completed', 8, '', 205],
     ],
   },
   {
@@ -98,14 +99,14 @@ export const DEMO_USERS: {
     hue: 345,
     bio: 'Drama, music, and films that wreck me a little.',
     entries: [
-      [244786, 'completed', 10, 'Left the room shaking. In a good way.', 1.6],
+      [244786, 'completed', 9, 'Left the room shaking. In a good way.', 1.6],
+      [346698, 'completed', 5, 'Great first hour, then it starts lecturing.', 9.5],
       [278, 'watching', null, '', 18],
-      [545611, 'completed', 10, 'Cried at the rocks. Everyone does.', 40],
+      [545611, 'completed', 8, 'Cried at the rocks. Everyone does.', 40],
       [419430, 'planned', null, '', 55],
-      [313369, 'completed', 9, '', 85],
-      [792307, 'completed', 8, '', 115],
-      [346698, 'completed', 7, '', 160],
-      [14160, 'completed', 9, '', 220],
+      [313369, 'completed', 7, '', 85],
+      [792307, 'completed', 6, '', 115],
+      [14160, 'completed', 8, '', 220],
     ],
   },
 ]

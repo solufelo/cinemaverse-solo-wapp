@@ -4,12 +4,21 @@ import { Loader2, Plus, RefreshCw } from 'lucide-react'
 import { STATUS_LABELS, STATUS_VERBS, WATCH_STATUSES } from '../../shared/constants.ts'
 import ActivityCard, { ActivitySkeleton } from '../components/ActivityCard'
 import { DemoButton } from '../components/Navbar'
-import { Avatar, EmptyState, ErrorState, KindTag, STATUS_STYLES } from '../components/ui'
+import { Avatar, EmptyState, ErrorState, KindTag, STATUS_STYLES, StatusMark } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { groupByDay, plural, timeAgo } from '../lib/format'
 
 const PAGE = 15
+
+function RefreshButton({ loading, onClick, className = '' }) {
+  return (
+    <button type="button" onClick={onClick} className={`btn-icon shrink-0 sm:w-auto sm:gap-2 sm:rounded-full sm:px-3.5 ${className}`} disabled={loading} aria-label="Refresh feed">
+      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+      <span className="hidden font-mono text-[11px] uppercase tracking-[0.14em] sm:inline">Refresh</span>
+    </button>
+  )
+}
 
 export default function FeedPage() {
   const { user } = useAuth()
@@ -65,9 +74,13 @@ export default function FeedPage() {
     <main>
       <header className="frame grid gap-8 pb-10 pt-10 sm:pb-12 sm:pt-16 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-7">
-          <p className="hud-label" style={{ '--mark': '#ff2d95' }}>
-            Live <span className="text-slate-600">/</span> newest first
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="hud-label" style={{ '--mark': '#ff2d95' }}>
+              Live <span className="text-slate-600">/</span> newest first
+            </p>
+            {/* On phones the filter row is full, so refresh moves up here. */}
+            <RefreshButton loading={state.loading} onClick={() => load()} className="-my-2 sm:hidden" />
+          </div>
           <h1 className="t-h1 mt-5">Squad feed</h1>
           <p className="mt-4 max-w-md text-muted">Every log, status change and rating from the squad, as it happens.</p>
         </div>
@@ -89,21 +102,20 @@ export default function FeedPage() {
 
       <div className="sticky top-16 z-30 border-b border-white/[0.07] bg-void/85 backdrop-blur-xl">
         <div className="frame flex items-center gap-4">
-          <div className="tabs mask-fade-x -ml-5 min-w-0 flex-1 border-b-0 pl-5 sm:ml-0 sm:pl-0 sm:[mask-image:none]" role="tablist" aria-label="Filter by status">
+          {/* Phones: a five-cell segmented control (marker over label) that fits 390px. Wider: the underline row. */}
+          <div className="tabs tabs-seg min-w-0 flex-1 border-b-0" role="tablist" aria-label="Filter by status">
             <button type="button" role="tab" className="tab" aria-selected={!status} onClick={() => setStatus(null)}>
+              <span className="h-2 w-2 bg-current sm:hidden" aria-hidden="true" />
               All
             </button>
             {WATCH_STATUSES.map((s) => (
               <button key={s} type="button" role="tab" className="tab" aria-selected={status === s} onClick={() => setStatus(s)}>
-                <span className={`h-1.5 w-1.5 ${STATUS_STYLES[s].bg}`} aria-hidden="true" />
+                <StatusMark status={s} className={STATUS_STYLES[s].text} />
                 {STATUS_LABELS[s]}
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => load()} className="btn-icon shrink-0 sm:w-auto sm:gap-2 sm:rounded-full sm:px-3.5" disabled={state.loading} aria-label="Refresh feed">
-            <RefreshCw className={`h-4 w-4 ${state.loading ? 'animate-spin' : ''}`} />
-            <span className="hidden font-mono text-[11px] uppercase tracking-[0.14em] sm:inline">Refresh</span>
-          </button>
+          <RefreshButton loading={state.loading} onClick={() => load()} className="hidden sm:inline-flex" />
         </div>
       </div>
 
@@ -120,7 +132,7 @@ export default function FeedPage() {
             <ActivitySkeleton count={5} />
           ) : state.error && !state.items.length ? (
             <div className="pt-8">
-              <ErrorState error={state.error} onRetry={() => load()} title="The feed didn't load" />
+              <ErrorState error={state.error} onRetry={() => load()} title="The feed is down for a moment" />
             </div>
           ) : state.items.length === 0 ? (
             <div className="pt-8">
@@ -180,9 +192,9 @@ export default function FeedPage() {
 
         <aside className="hidden space-y-12 pt-10 lg:col-span-4 lg:block lg:sticky lg:top-36 lg:self-start">
           {!user ? (
-            <div className="hud-corners rounded-sm border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
+            <div className="hud-corners rounded-[4px] border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
               <p className="hud-label">Join the feed</p>
-              <p className="mt-5 font-display text-xl font-bold uppercase leading-tight tracking-tight text-white">Log a film in two clicks.</p>
+              <p className="t-h3 mt-5 leading-tight">Log a film in two clicks.</p>
               <p className="mt-3 text-muted">A guest account takes one click. Sign up to keep your history.</p>
               <div className="mt-7 grid gap-2">
                 <DemoButton className="btn-primary w-full">Try the demo</DemoButton>
@@ -192,9 +204,9 @@ export default function FeedPage() {
               </div>
             </div>
           ) : (
-            <div className="hud-corners rounded-sm border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
+            <div className="hud-corners rounded-[4px] border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
               <p className="hud-label">Your move</p>
-              <p className="mt-5 font-display text-xl font-bold uppercase leading-tight tracking-tight text-white">What are you watching?</p>
+              <p className="t-h3 mt-5 leading-tight">What are you watching?</p>
               <Link to="/log" className="btn-primary mt-7 w-full">
                 <Plus className="h-4 w-4" /> Log a film
               </Link>

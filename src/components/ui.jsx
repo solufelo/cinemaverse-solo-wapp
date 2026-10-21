@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Bookmark, Check, Play, RotateCcw, ScanLine, X } from 'lucide-react'
 import { STATUS_LABELS } from '../../shared/constants.ts'
 import { ratingWord } from '../lib/format'
@@ -12,7 +11,25 @@ export const STATUS_STYLES = {
   dropped: { text: 'text-ember', bg: 'bg-ember', ring: 'border-ember/50 bg-ember/10', bar: '#ff6b5b', icon: X },
 }
 
-/** Status as a HUD readout: square pip + mono caps. `boxed` adds a plate for use over imagery. */
+/**
+ * Status marker. Colour alone is not enough at 8px (queued pink vs dropped coral), so each
+ * status also has its own shape: play, solid square, ring, cross. Inherits currentColor.
+ */
+export function StatusMark({ status, className = '' }) {
+  const shape = {
+    watching: <path d="M1.5 0.8 8 5l-6.5 4.2z" fill="currentColor" />,
+    completed: <rect x="1" y="1" width="8" height="8" fill="currentColor" />,
+    planned: <circle cx="5" cy="5" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.8" />,
+    dropped: <path d="m1.6 1.6 6.8 6.8m0-6.8L1.6 8.4" stroke="currentColor" strokeWidth="1.9" />,
+  }[status]
+  return (
+    <svg viewBox="0 0 10 10" aria-hidden="true" className={`h-2 w-2 shrink-0 ${className}`}>
+      {shape}
+    </svg>
+  )
+}
+
+/** Status as a HUD readout: shaped marker + mono caps. `boxed` adds a plate for use over imagery. */
 export function StatusChip({ status, boxed = false, className = '' }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES.planned
   return (
@@ -21,7 +38,7 @@ export function StatusChip({ status, boxed = false, className = '' }) {
         boxed ? 'rounded-[3px] bg-void/85 px-2 py-1.5 backdrop-blur' : ''
       } ${className}`}
     >
-      <span className={`h-1.5 w-1.5 ${s.bg}`} />
+      <StatusMark status={status} />
       {STATUS_LABELS[status] || status}
     </span>
   )
@@ -57,7 +74,7 @@ export function Poster({ path, title, size = 'w342', className = '', eager = fal
       decoding="async"
       onLoad={() => setState('ok')}
       onError={() => setState('error')}
-      className={`aspect-[2/3] bg-raised object-cover transition-opacity duration-500 ${state === 'ok' ? 'opacity-100' : 'opacity-0'} ${className}`}
+      className={`aspect-[2/3] bg-raised object-cover ${state === 'ok' ? '' : 'img-wait'} ${className}`}
     />
   )
 }
@@ -74,11 +91,11 @@ export function Avatar({ user, size = 36, className = '' }) {
     .toUpperCase()
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-display font-bold text-void ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-sans font-bold leading-none text-void ${className}`}
       style={{
         width: size,
         height: size,
-        fontSize: Math.max(9, size * 0.34),
+        fontSize: Math.max(9.5, size * 0.38),
         background: `linear-gradient(135deg, hsl(${hue} 95% 64%), hsl(${(hue + 55) % 360} 90% 54%))`,
       }}
       aria-hidden="true"
@@ -110,7 +127,7 @@ export function RatingBar({ rating, className = '' }) {
           <span key={i} className={`h-2.5 w-[5px] ${i < rating ? 'bg-acid' : 'bg-white/[0.12]'}`} />
         ))}
       </span>
-      <span className="font-display text-[12px] font-bold tabular-nums text-acid">{rating}/10</span>
+      <span className="font-mono text-[12px] font-semibold tabular-nums text-acid">{rating}/10</span>
     </span>
   )
 }
@@ -161,17 +178,17 @@ export function Skeleton({ className = '' }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />
 }
 
-/** Empty state: a dashed HUD frame with a target reticle. Every list in the app uses it. */
+/** Empty state: a hairline HUD frame with a target reticle. Every list in the app uses it. */
 export function EmptyState({ icon: Icon = ScanLine, label = 'No signal', title, children, action, className = '' }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-dashed border-white/[0.12] px-6 py-14 text-center sm:py-16 ${className}`}>
+    <div className={`relative overflow-hidden rounded-[4px] border border-white/[0.09] bg-white/[0.015] px-6 py-14 text-center sm:py-16 ${className}`}>
       <div aria-hidden="true" className="grid-bg pointer-events-none absolute inset-0 opacity-50 [mask-image:radial-gradient(closest-side,black,transparent)]" />
       <div className="relative">
         <span className="hud-corners mx-auto mb-6 flex h-14 w-14 items-center justify-center" style={{ '--inset': '0px', '--corner': 'rgba(0,245,255,.7)', '--corner-len': '10px' }}>
           <Icon className="h-5 w-5 text-neon" strokeWidth={1.75} />
         </span>
         <p className="hud-label justify-center">{label}</p>
-        <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-tight text-white sm:text-2xl">{title}</h3>
+        <h3 className="t-h3 mt-3 sm:text-2xl">{title}</h3>
         {children ? <p className="mx-auto mt-3 max-w-md text-muted">{children}</p> : null}
         {action ? <div className="mt-7 flex flex-wrap justify-center gap-3">{action}</div> : null}
       </div>
@@ -181,14 +198,14 @@ export function EmptyState({ icon: Icon = ScanLine, label = 'No signal', title, 
 
 export function ErrorState({ error, onRetry, title = "Couldn't load this" }) {
   return (
-    <div role="alert" className="relative overflow-hidden rounded-2xl border border-dashed border-ember/30 px-6 py-12 text-center">
+    <div role="alert" className="relative overflow-hidden rounded-[4px] border border-ember/25 bg-ember/[0.03] px-6 py-12 text-center">
       <span className="hud-corners mx-auto mb-6 flex h-14 w-14 items-center justify-center" style={{ '--inset': '0px', '--corner': 'rgba(255,107,91,.8)', '--corner-len': '10px' }}>
         <span className="font-display text-lg font-black text-ember">!</span>
       </span>
       <p className="hud-label justify-center" style={{ '--mark': '#ff6b5b' }}>
         Signal lost
       </p>
-      <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-tight text-white">{title}</h3>
+      <h3 className="t-h3 mt-3">{title}</h3>
       <p className="mx-auto mt-3 max-w-md text-muted">{error?.message || 'Something went wrong.'}</p>
       {onRetry ? (
         <button type="button" onClick={onRetry} className="btn-ghost btn-sm mt-6">
@@ -199,13 +216,16 @@ export function ErrorState({ error, onRetry, title = "Couldn't load this" }) {
   )
 }
 
-export function PlayerLink({ user, className = '', handle = true }) {
+/** Compact empty state for side columns: same frame and reticle as EmptyState, one line of copy. */
+export function MiniEmpty({ icon: Icon = ScanLine, children, action }) {
   return (
-    <Link to={`/u/${user.username}`} className={`group/player inline-flex min-w-0 items-center gap-2.5 ${className}`}>
-      <Avatar user={user} size={26} />
-      <span className="truncate font-semibold text-ink transition group-hover/player:text-neon">{user.displayName}</span>
-      {handle ? <span className="hidden truncate font-mono text-[12px] text-muted sm:inline">@{user.username}</span> : null}
-    </Link>
+    <div className="flex items-center gap-4 rounded-[4px] border border-white/[0.09] bg-white/[0.015] p-4">
+      <span className="hud-corners flex h-10 w-10 shrink-0 items-center justify-center" style={{ '--inset': '0px', '--corner': 'rgba(0,245,255,.7)', '--corner-len': '7px' }}>
+        <Icon className="h-4 w-4 text-neon" strokeWidth={1.75} />
+      </span>
+      <p className="min-w-0 flex-1 text-[14.5px] leading-snug text-muted">{children}</p>
+      {action}
+    </div>
   )
 }
 

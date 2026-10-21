@@ -3,12 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowUpRight, ListVideo, Plus, Trash2 } from 'lucide-react'
 import { STATUS_LABELS, WATCH_STATUSES } from '../../shared/constants.ts'
 import StatusPicker from '../components/StatusPicker'
-import { EmptyState, ErrorState, Poster, RatingInput, Skeleton, STATUS_STYLES } from '../components/ui'
+import { EmptyState, ErrorState, Poster, RatingInput, Skeleton, STATUS_STYLES, StatusMark } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useApi } from '../hooks/useApi'
 import { api } from '../lib/api'
-import { pad2 } from '../lib/format'
+import { metaLine, pad2 } from '../lib/format'
 
 export default function WatchlistPage() {
   const { user } = useAuth()
@@ -41,12 +41,8 @@ export default function WatchlistPage() {
         </div>
       </header>
 
-      {/* Inventory readout: the counts are the filter. */}
-      <div
-        className="scrollbar-none -mx-5 mb-12 mt-10 grid auto-cols-[minmax(104px,1fr)] grid-flow-col overflow-x-auto border-y border-white/[0.08] sm:mx-0"
-        role="tablist"
-        aria-label="Filter by status"
-      >
+      {/* Inventory readout: the counts are the filter. Five equal cells that fit a 390px phone, no scrolling. */}
+      <div className="-mx-5 mb-12 mt-10 grid grid-cols-5 border-y border-white/[0.08] sm:mx-0" role="tablist" aria-label="Filter by status">
         {[null, ...WATCH_STATUSES].map((s) => {
           const on = status === s
           const n = s ? counts[s] : entries.length
@@ -58,17 +54,17 @@ export default function WatchlistPage() {
               role="tab"
               aria-selected={on}
               onClick={() => setParams(s ? { status: s } : {}, { replace: true })}
-              className={`group relative border-r border-white/[0.06] px-5 py-5 text-left transition last:border-r-0 sm:px-6 sm:py-6 ${on ? 'bg-white/[0.035]' : 'hover:bg-white/[0.02]'}`}
+              className={`group relative min-w-0 border-r border-white/[0.06] px-2 py-4 text-center transition last:border-r-0 sm:px-6 sm:py-6 sm:text-left ${on ? 'bg-white/[0.035]' : 'hover:bg-white/[0.02]'}`}
             >
               <span
                 aria-hidden="true"
                 className={`absolute inset-x-0 -top-px h-[2px] origin-left transition-transform duration-300 ease-out ${st ? st.bg : 'bg-white'} ${on ? 'scale-x-100' : 'scale-x-0'}`}
               />
-              <span className={`flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.14em] transition ${on ? 'text-white' : 'text-muted group-hover:text-slate-200'}`}>
-                <span className={`h-1.5 w-1.5 ${st ? st.bg : 'bg-white'}`} aria-hidden="true" />
+              <span className={`flex flex-col items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.04em] transition sm:flex-row sm:gap-2 sm:text-[10.5px] sm:tracking-[0.14em] ${on ? 'text-white' : 'text-muted group-hover:text-slate-200'}`}>
+                {s ? <StatusMark status={s} className={st.text} /> : <span className="h-2 w-2 bg-white" aria-hidden="true" />}
                 {s ? STATUS_LABELS[s] : 'All'}
               </span>
-              <span className={`t-num mt-3 block text-[clamp(1.75rem,1.2rem+1.6vw,2.75rem)] leading-none ${n ? (st ? st.text : 'text-white') : 'text-slate-700'}`}>{pad2(n)}</span>
+              <span className={`t-num mt-2.5 block text-[clamp(1.6rem,1.1rem+1.8vw,2.75rem)] leading-none sm:mt-3 ${n ? (st ? st.text : 'text-white') : 'text-slate-600'}`}>{pad2(n)}</span>
             </button>
           )
         })}
@@ -78,7 +74,7 @@ export default function WatchlistPage() {
         <div className="grid gap-x-5 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-busy="true" aria-label="Loading watchlist">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="grid grid-cols-[104px_1fr] gap-4 sm:block">
-              <Skeleton className="aspect-[2/3] w-full rounded-[5px]" />
+              <Skeleton className="aspect-[2/3] w-full" />
               <div className="space-y-3 sm:mt-4">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
@@ -149,13 +145,13 @@ function EntryCard({ entry, index, onChange, onRemove, onRestore }) {
     <li className="group grid grid-cols-[104px_1fr] gap-4 sm:block" data-reveal="scan" style={{ '--i': index % 5 }}>
       <div className="relative self-start">
         <Link to={`/log?film=${entry.tmdbId}`} className="block" aria-label={`Edit ${entry.title} in the logger`}>
-          <span className="relative block overflow-hidden rounded-[5px] ring-1 ring-white/10 transition duration-500 group-hover:ring-white/25">
+          <span className="relative block overflow-hidden rounded-[4px] ring-1 ring-white/10 transition duration-500 group-hover:ring-white/25">
             <Poster path={entry.posterPath} title={entry.title} className="w-full transition duration-700 ease-out group-hover:scale-[1.03]" />
             <span aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[3px] ${STATUS_STYLES[entry.status].bg}`} />
           </span>
         </Link>
         {confirming ? (
-          <div className="absolute inset-0 flex animate-fade flex-col items-center justify-center gap-3 rounded-[5px] bg-void/90 p-3 text-center backdrop-blur-sm">
+          <div className="absolute inset-0 flex animate-fade flex-col items-center justify-center gap-3 rounded-[4px] bg-void/90 p-3 text-center backdrop-blur-sm">
             <p className="text-sm text-slate-200">Remove from your list?</p>
             <div className="flex flex-col gap-1.5 sm:flex-row">
               <button type="button" onClick={remove} className="btn-sm btn text-ember [--plate:rgba(255,107,91,0.14)] hover:[--plate:rgba(255,107,91,0.24)]">
@@ -179,23 +175,21 @@ function EntryCard({ entry, index, onChange, onRemove, onRestore }) {
       </div>
 
       <div className="min-w-0 sm:mt-4">
-        <h2 className="t-film truncate text-[17px] leading-tight">{entry.title}</h2>
-        <p className="meta mt-1.5 truncate">
-          {[entry.releaseYear, entry.genres?.[0]].filter(Boolean).join(' · ')}
-        </p>
+        <h2 className="t-film line-clamp-3 text-[17px] leading-tight">{entry.title}</h2>
+        <p className="meta mt-1.5">{metaLine(entry.releaseYear, entry.genres, { limit: 1 })}</p>
         <div className="mt-4">
           <span id={`status-${entry.tmdbId}`} className="sr-only">
             Status for {entry.title}
           </span>
           <StatusPicker size="sm" value={entry.status} disabled={busy} labelledBy={`status-${entry.tmdbId}`} onChange={(s) => s !== entry.status && patch({ status: s })} />
         </div>
-        <div className="mt-3">
-          <span id={`rating-${entry.tmdbId}`} className="sr-only">
-            Rating for {entry.title}
-          </span>
-          <RatingInput compact value={entry.rating} onChange={(r) => patch({ rating: r })} id={`rating-${entry.tmdbId}`} />
-        </div>
-        {entry.note ? <p className="mt-3 line-clamp-2 text-[14px] leading-snug text-slate-400">&ldquo;{entry.note}&rdquo;</p> : null}
+      </div>
+      <div className="col-span-2 sm:mt-3">
+        <span id={`rating-${entry.tmdbId}`} className="sr-only">
+          Rating for {entry.title}
+        </span>
+        <RatingInput compact value={entry.rating} onChange={(r) => patch({ rating: r })} id={`rating-${entry.tmdbId}`} />
+        {entry.note ? <p className="mt-3 line-clamp-3 text-[14px] leading-snug text-slate-400" title={entry.note}>&ldquo;{entry.note}&rdquo;</p> : null}
       </div>
     </li>
   )

@@ -12,18 +12,19 @@ A social film log with a gamer HUD look. Search TMDB, mark a film **watching / c
 | **Sign in** | **404** | |
 | ![Sign in](revamp-shots/07-sign-in.png) | ![404](revamp-shots/08-not-found.png) | |
 
-Phone (390 px): [feed](revamp-shots/09-phone-feed.png) · [log composer sheet](revamp-shots/10-phone-log.png)
+Phone (390 px): [home](revamp-shots/11-phone-home.png) · [feed](revamp-shots/09-phone-feed.png) · [log composer sheet](revamp-shots/10-phone-log.png)
 
 ## Design
 
 A HUD for a film log: the neon-on-void palette and Orbitron stay, but each is used for one job.
 
-- **Type.** Orbitron for display and numerals only (page titles, ranks, stats). Saira for reading. JetBrains Mono for HUD readouts: labels, timestamps, statuses, counts. All three are self-hosted latin subsets in `public/fonts` (85 KB together, preloaded), sizes follow a fluid `clamp()` scale in `src/index.css`.
-- **Colour has meaning.** Cyan is action and focus, and the four statuses keep their own colours (cyan watching, lime completed, pink queued, coral dropped) everywhere: poster base lines, chips, tabs, the profile split bar.
-- **Posters lead.** Feed entries, shelves, the watchlist, picks and the home rail are built around the poster. Corner brackets "lock on" to whatever you hover or select.
+- **Type.** Orbitron sets display lines only (page and section titles), with open tracking so its wide caps never touch; outlined lines get extra air. Saira for reading, including film titles. JetBrains Mono for HUD readouts and every number (stats, counts, ratings, ranks): plain zeros, tabular figures, big counters zero-padded. All three are self-hosted latin subsets in `public/fonts` (85 KB together, preloaded), sizes follow a fluid `clamp()` scale in `src/index.css`.
+- **Colour has meaning, and shape backs it up.** Cyan is action and focus. The four statuses keep their own colours (cyan watching, lime completed, pink queued, coral dropped) and their own marker shapes (play, square, ring, cross) everywhere: chips, tabs, legends, poster base lines, the profile split bar.
+- **Corners.** Chamfered plates for actions, 4px for panels, cards and imagery, round only for avatars. Empty and error states use the same hairline frame as everything else.
+- **Posters lead, stills are framed.** Feed entries, shelves, the watchlist, picks and the home rail are built around the poster. The home hero shows the featured still whole, with its poster over the corner; profile banners and the top pick keep the still to one side and fade it out before the text, with a per-film focus point (`backdropFocus` in `src/lib/tmdb.js`), so a face never sits under copy. Corner brackets "lock on" to whatever you hover or select.
 - **Each page has its own shape.** The feed is grouped by day, and a post with a take gets the poster and a pull quote while a bare status change is a one-line entry. The watchlist opens on a big-numeral status readout that is also the filter. For you ranks one top pick, two runners-up and a poster grid. Profile banners are tinted in the player's own colour.
 - **Motion.** A boot screen until the app paints, a scan line and settle on every route change, poster tiles that "scan in" behind a cyan line, scroll reveals, a crossfading hero and a live ticker. All of it is off under `prefers-reduced-motion`.
-- **Phone.** A thumb-reach tab bar with the logger in the middle, and the composer opens as a bottom sheet.
+- **Phone.** A thumb-reach tab bar with the logger in the middle, and the composer opens as a bottom sheet. The featured film folds into one row above the headline, and filter rows become equal segmented cells that fit 390 px without scrolling.
 - **States.** Loading skeletons match each layout; empty, error, no-results and 404 states share one framed design.
 
 ## Stack
@@ -45,8 +46,10 @@ npm run dev          # http://localhost:4410
 
 That's all. On first start the embedded database is created in `.data/pglite`, migrated, and seeded with the demo community. No keys are required:
 
-- With no `TMDB_API_KEY`, trending and search use a bundled catalogue of 40 real TMDB films, labelled "Offline catalog" in the UI. To use live TMDB data without a key of your own, set `TMDB_UPSTREAM=https://cinemaverse-solo.netlify.app` and requests go through that deployment's proxy.
-- With no `OPENROUTER_API_KEY`, "For you" uses taste-match and says so on the page.
+- With no `TMDB_API_KEY`, trending and search use a bundled catalogue of 40 real TMDB films, which the UI presents as a curated shelf ("Top of the shelf"). Setup state never shows as copy; the source is only exposed as a `data-source` attribute for tests. To use live TMDB data without a key of your own, set `TMDB_UPSTREAM=https://cinemaverse-solo.netlify.app` and requests go through that deployment's proxy.
+- With no `OPENROUTER_API_KEY`, "For you" uses taste-match picks: each pick gets its own reason (the film of yours it builds on, or which squad member loved it, with their take).
+
+The demo seed changed with the revamp (ratings now spread from 5 to 10, takes on drops and queues). An existing `.data/pglite` keeps the old rows: run `npm run db:reset` to pick up the new ones.
 
 Copy `.env.example` to `.env` to set any of these. `.env` is git-ignored.
 
@@ -54,7 +57,7 @@ Copy `.env.example` to `.env` to set any of these. `.env` is git-ignored.
 
 | Who | How | Notes |
 |---|---|---|
-| **Guest** | "Try the demo" button (home, feed, sign-in page) | Instant account with no email or password. Expires after 24 hours, along with its posts. |
+| **Guest** | "Try the demo" button (home, feed, sign-in page) | Instant account with no email or password, named with a cinema callsign ("Neon Usher"). Its posts show only in the guest's own feed and profile, so the shared feed stays clean, and it expires after 24 hours along with them. |
 | **Six demo players** (`nova`, `pixel_rat`, `cinema_ghost`, `reel_ronin`, `kaiju_kid`, `velvet_static`) | Seeded | Fictional and labelled **DEMO** everywhere. They have no password and can't be signed into. Their logs fill the feed, profiles and the recommendation pool. |
 | **Your own account** | Sign up | Username, email, password (8+ characters). |
 | **Admin** | Sign up with an email listed in `ADMIN_EMAILS` | Can delete any feed post. Everyone else can delete only their own. |
@@ -66,7 +69,7 @@ Copy `.env.example` to `.env` to set any of these. `.env` is git-ignored.
 | `npm run dev` | Vite + API + embedded Postgres on port 4410 |
 | `npm run build` | Production client build into `dist/` |
 | `npm run typecheck` | `tsc` over the API, shared code, scripts and tests |
-| `npm test` | 53 Vitest tests: 41 API tests on an in-memory Postgres, 12 client unit tests |
+| `npm test` | 59 Vitest tests: 43 API tests on an in-memory Postgres, 16 client unit tests |
 | `npm run test:e2e` | 4 Playwright tests: the public flow, phone layout and composer sheet, the 404 and console errors. First run on a new machine: `npx playwright install chromium` |
 | `npm run db:migrate` / `db:seed` | Apply migrations / add the demo community (uses `DATABASE_URL` if set) |
 | `npm run db:reseed` | Re-time the demo community to "now" so the feed looks fresh |

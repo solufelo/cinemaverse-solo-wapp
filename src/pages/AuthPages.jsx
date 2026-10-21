@@ -6,25 +6,31 @@ import { DemoButton } from '../components/Navbar'
 import { Poster } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 
+// Columns start level, half a tile up and a quarter tile up (margins are % of column width; a tile
+// is 1.5x that), so the stagger reads as intended and no tile starts as a sliver.
+const WALL_OFFSETS = ['0%', '-75%', '-37.5%']
+
 function AuthShell({ title, subtitle, children, footer }) {
   const wall = CATALOG.filter((f) => f.posterPath)
   const cols = [wall.slice(0, 6), wall.slice(6, 12), wall.slice(12, 18)]
   return (
     <main className="frame grid items-stretch gap-12 py-12 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-12 lg:py-16">
-      <div aria-hidden="true" className="relative hidden overflow-hidden rounded-2xl border border-white/[0.07] lg:col-span-6 lg:block">
-        <div className="absolute inset-0 grid grid-cols-3 gap-3 p-3 opacity-70">
+      <div aria-hidden="true" className="relative hidden overflow-hidden rounded-[4px] border border-white/[0.07] bg-void lg:col-span-6 lg:block">
+        {/* Posters live in the top two thirds and fade out at both edges; the bottom third is clear for the headline. */}
+        <div className="absolute inset-x-0 top-0 grid h-[70%] grid-cols-3 gap-3 px-3 opacity-75 [mask-image:linear-gradient(to_bottom,transparent,black_16%,black_52%,transparent_90%)]">
           {cols.map((col, c) => (
             <div key={c} className="overflow-hidden">
-              <div className={`flex flex-col gap-3 animate-marquee-y ${c === 1 ? '[animation-direction:reverse]' : ''}`} style={{ animationDuration: `${60 + c * 12}s` }}>
-                {[...col, ...col].map((f, i) => (
-                  <Poster key={`${f.tmdbId}-${i}`} path={f.posterPath} title="" size="w185" className="w-full rounded-[4px]" />
-                ))}
+              <div style={{ marginTop: WALL_OFFSETS[c] }}>
+                <div className={`flex flex-col gap-3 animate-marquee-y ${c === 1 ? '[animation-direction:reverse]' : ''}`} style={{ animationDuration: `${70 + c * 14}s` }}>
+                  {[...col, ...col].map((f, i) => (
+                    <Poster key={`${f.tmdbId}-${i}`} path={f.posterPath} title="" size="w185" className="w-full rounded-[4px]" />
+                  ))}
+                </div>
               </div>
             </div>
           ))}
         </div>
-        <div className="scanlines absolute inset-0 opacity-60" />
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-void/10" />
+        <div className="scanlines absolute inset-0 opacity-40" />
         <div className="absolute bottom-10 left-10 right-10">
           <p className="hud-label">Cinemaverse</p>
           <p className="t-h1 mt-5 text-[clamp(2rem,1rem+2vw,3.2rem)]">
@@ -44,7 +50,8 @@ function AuthShell({ title, subtitle, children, footer }) {
           <div className="my-8 flex items-center gap-4 font-mono text-[10.5px] uppercase tracking-[0.3em] text-muted">
             <span className="h-px flex-1 bg-white/10" /> or <span className="h-px flex-1 bg-white/10" />
           </div>
-          <DemoButton className="btn-ghost w-full">Try the demo without an account</DemoButton>
+          <DemoButton className="btn-ghost w-full" />
+          <p className="mt-3 text-center text-[13px] text-muted">No email, no password. A guest pass lasts 24 hours.</p>
           <p className="mt-8 text-center text-sm text-muted">{footer}</p>
         </div>
       </div>
@@ -91,7 +98,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [state, submit] = useSubmit(() => signIn({ identifier, password }))
 
-  if (!loading && user) return <Navigate to={location.state?.from || '/feed'} replace />
+  // A guest pass started from this page lands in the logger, the same place the demo button sends it.
+  if (!loading && user) return <Navigate to={location.state?.from || (user.kind === 'guest' ? '/log' : '/feed')} replace />
 
   return (
     <AuthShell

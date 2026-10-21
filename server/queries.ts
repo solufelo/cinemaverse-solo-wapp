@@ -64,6 +64,9 @@ export async function listFeed(
        join users u on u.id = a.user_id
       where ($2::text is null or a.status = $2::text)
         and ($3::uuid is null or a.user_id = $3::uuid)
+        -- Guest posts reach only the guest's own feed (and their profile), so the shared feed
+        -- doesn't fill up with throwaway demo accounts.
+        and ($3::uuid is not null or u.kind <> 'guest' or a.user_id = $1::uuid)
         and ($4::timestamptz is null or (a.created_at, a.id) < ($4::timestamptz, $5::uuid))
       order by a.created_at desc, a.id desc
       limit $6`,

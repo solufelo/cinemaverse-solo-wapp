@@ -63,6 +63,13 @@ export function DemoButton({ className = 'btn-primary', children = 'Try the demo
   )
 }
 
+// The "you are here" bar sits on the header's bottom edge; the link itself stays label-sized so
+// its focus ring hugs the text like the buttons' rings do.
+const navItem = (isActive) =>
+  `relative inline-flex h-8 items-center font-mono text-[12px] uppercase tracking-[0.14em] transition after:absolute after:inset-x-0 after:-bottom-[17px] after:h-[2px] after:origin-left after:bg-neon after:transition-transform after:duration-300 ${
+    isActive ? 'text-white after:scale-x-100' : 'text-muted after:scale-x-0 hover:text-white'
+  }`
+
 export default function Navbar() {
   const { user, signOut, loading } = useAuth()
   const navigate = useNavigate()
@@ -86,26 +93,21 @@ export default function Navbar() {
         scrolled ? 'border-white/[0.07] bg-void/80 backdrop-blur-xl' : 'border-transparent bg-void/40 backdrop-blur-md'
       }`}
     >
-      <div className="frame flex h-16 items-center justify-between gap-6">
-        <Logo />
+      {/* Three columns (1fr auto 1fr): the centre nav never moves while the auth slot resolves. */}
+      <div className="frame flex h-16 items-center justify-between gap-6 md:grid md:grid-cols-[1fr_auto_1fr]">
+        <div className="justify-self-start">
+          <Logo />
+        </div>
 
-        <nav className="hidden h-full items-center gap-8 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-8 md:flex" aria-label="Main">
           {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              className={({ isActive }) =>
-                `relative flex h-full items-center font-mono text-[12px] uppercase tracking-[0.14em] transition after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:origin-left after:bg-neon after:transition-transform after:duration-300 ${
-                  isActive ? 'text-white after:scale-x-100' : 'text-muted after:scale-x-0 hover:text-white'
-                }`
-              }
-            >
+            <NavLink key={l.to} to={l.to} className={({ isActive }) => navItem(isActive)}>
               {l.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="flex min-w-[9rem] items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 justify-self-end">
           {loading ? null : user ? (
             <>
               <Link
@@ -122,12 +124,15 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login" className="hidden px-3 font-mono text-[12px] uppercase tracking-[0.14em] text-muted transition hover:text-white sm:inline">
+              <NavLink to="/login" className={({ isActive }) => `${navItem(isActive)} mr-3 max-sm:hidden`}>
                 Sign in
-              </Link>
-              <Link to="/signup" className="btn-primary btn-sm">
+              </NavLink>
+              <NavLink
+                to="/signup"
+                className={({ isActive }) => `btn-sm ${isActive ? 'btn-quiet text-white' : 'btn-primary'} after:absolute after:inset-x-0 after:-bottom-[15px] after:h-[2px] after:bg-neon ${isActive ? 'after:block' : 'after:hidden'}`}
+              >
                 Sign up
-              </Link>
+              </NavLink>
             </>
           )}
         </div>
