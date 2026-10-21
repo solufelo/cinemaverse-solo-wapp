@@ -61,14 +61,16 @@ function ProfilePage({ username }) {
     <main>
       <section className="relative isolate overflow-hidden border-b border-white/[0.06]">
         <div aria-hidden="true" className="absolute inset-0 -z-10">
-          {backdrop ? <img src={backdrop} alt="" fetchpriority="high" className="ken-burns absolute inset-0 h-full w-full object-cover object-[60%_35%] opacity-60" /> : null}
+          {backdrop ? <img src={backdrop} alt="" fetchpriority="high" className="ken-burns absolute inset-0 h-full w-full object-cover object-[60%_35%] opacity-60 grayscale-[0.55]" /> : null}
+          {/* Tint the banner in the player's own hue, so every profile reads as theirs whatever the film. */}
+          <div className="absolute inset-0 mix-blend-color" style={{ background: `hsla(${hue}, 90%, 55%, 0.38)` }} />
           <div className="scanlines absolute inset-0 opacity-50" />
           <div className="absolute inset-0 bg-gradient-to-r from-void via-void/75 to-void/0" />
           <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-void via-void/60 to-transparent" />
           <div className="absolute inset-0" style={{ background: `radial-gradient(60% 80% at 0% 100%, hsla(${hue}, 95%, 60%, 0.18), transparent 70%)` }} />
         </div>
 
-        <div className="frame flex min-h-[440px] flex-col justify-end gap-8 pb-12 pt-24 sm:min-h-[500px] lg:flex-row lg:items-end lg:justify-between">
+        <div className="frame flex min-h-[400px] flex-col justify-end gap-8 pb-12 pt-24 sm:min-h-[440px] lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
             <span className="hud-corners inline-flex self-start sm:self-end" style={{ '--inset': '-8px', '--corner': `hsl(${hue} 95% 64%)` }}>
               <Avatar user={profile} size={104} />
@@ -98,18 +100,9 @@ function ProfilePage({ username }) {
 
       <div className="frame mt-20 grid gap-16 lg:grid-cols-12 lg:gap-12">
         <section aria-labelledby="shelves" className="min-w-0 lg:col-span-8">
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <h2 id="shelves" className="t-h2">
-              Shelves
-            </h2>
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted" aria-label="Legend">
-              {WATCH_STATUSES.map((s) => (
-                <li key={s} className="flex items-center gap-1.5">
-                  <span className={`h-[3px] w-3 ${STATUS_STYLES[s].bg}`} /> {STATUS_LABELS[s]}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <h2 id="shelves" className="t-h2 mb-8">
+            Shelves
+          </h2>
           <div className="tabs mb-8" role="tablist" aria-label="Shelf">
             <button type="button" role="tab" className="tab" aria-selected={shelf === 'all'} onClick={() => setShelf('all')}>
               All <span className="tab-count">{entries.length}</span>

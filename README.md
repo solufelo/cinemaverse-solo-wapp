@@ -21,7 +21,8 @@ A HUD for a film log: the neon-on-void palette and Orbitron stay, but each is us
 - **Type.** Orbitron for display and numerals only (page titles, ranks, stats). Saira for reading. JetBrains Mono for HUD readouts: labels, timestamps, statuses, counts. All three are self-hosted latin subsets in `public/fonts` (85 KB together, preloaded), sizes follow a fluid `clamp()` scale in `src/index.css`.
 - **Colour has meaning.** Cyan is action and focus, and the four statuses keep their own colours (cyan watching, lime completed, pink queued, coral dropped) everywhere: poster base lines, chips, tabs, the profile split bar.
 - **Posters lead.** Feed entries, shelves, the watchlist, picks and the home rail are built around the poster. Corner brackets "lock on" to whatever you hover or select.
-- **Motion.** A boot screen until the app paints, a scan line and settle on every route change, scroll reveals, a crossfading hero and a live ticker. All of it is off under `prefers-reduced-motion`.
+- **Each page has its own shape.** The feed is grouped by day, and a post with a take gets the poster and a pull quote while a bare status change is a one-line entry. The watchlist opens on a big-numeral status readout that is also the filter. For you ranks one top pick, two runners-up and a poster grid. Profile banners are tinted in the player's own colour.
+- **Motion.** A boot screen until the app paints, a scan line and settle on every route change, poster tiles that "scan in" behind a cyan line, scroll reveals, a crossfading hero and a live ticker. All of it is off under `prefers-reduced-motion`.
 - **Phone.** A thumb-reach tab bar with the logger in the middle, and the composer opens as a bottom sheet.
 - **States.** Loading skeletons match each layout; empty, error, no-results and 404 states share one framed design.
 
@@ -65,7 +66,7 @@ Copy `.env.example` to `.env` to set any of these. `.env` is git-ignored.
 | `npm run dev` | Vite + API + embedded Postgres on port 4410 |
 | `npm run build` | Production client build into `dist/` |
 | `npm run typecheck` | `tsc` over the API, shared code, scripts and tests |
-| `npm test` | 51 Vitest tests: 41 API tests on an in-memory Postgres, 10 client unit tests |
+| `npm test` | 53 Vitest tests: 41 API tests on an in-memory Postgres, 12 client unit tests |
 | `npm run test:e2e` | 4 Playwright tests: the public flow, phone layout and composer sheet, the 404 and console errors. First run on a new machine: `npx playwright install chromium` |
 | `npm run db:migrate` / `db:seed` | Apply migrations / add the demo community (uses `DATABASE_URL` if set) |
 | `npm run db:reseed` | Re-time the demo community to "now" so the feed looks fresh |

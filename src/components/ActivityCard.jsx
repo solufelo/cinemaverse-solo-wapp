@@ -121,7 +121,7 @@ function TakeEntry({ item, onRemoved }) {
         <div className="flex min-w-0 items-center gap-2.5">
           <PlayerLink user={item.user} />
           <KindTag kind={item.user.kind} />
-          <Stamp iso={item.createdAt} className="ml-auto" />
+          <Stamp iso={item.createdAt} className="ml-auto hidden sm:block" />
         </div>
 
         <h3 className="mt-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 sm:mt-4">
@@ -149,7 +149,9 @@ function TakeEntry({ item, onRemoved }) {
         <Link to={logHref} className="inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted transition hover:text-neon">
           <Plus className="h-4 w-4" /> Log this film
         </Link>
-        <span className="ml-auto">
+        {/* On phones the time moves down here so the player's name keeps its room. */}
+        <Stamp iso={item.createdAt} className="ml-auto pr-1 sm:hidden" />
+        <span className="sm:ml-auto">
           <DeleteButton item={item} onRemoved={onRemoved} />
         </span>
       </div>
@@ -169,13 +171,13 @@ function LogLine({ item, onRemoved }) {
       </Link>
       <div className="min-w-0">
         <p className="flex min-w-0 items-center gap-2 text-[14px]">
-          <Link to={`/u/${item.user.username}`} className="truncate font-semibold text-ink transition hover:text-neon">
+          <Link to={`/u/${item.user.username}`} className="truncate font-semibold text-slate-200 transition hover:text-neon">
             {item.user.displayName}
           </Link>
-          <span className={`shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] ${s?.text}`}>{STATUS_VERBS[item.status]}</span>
           <KindTag kind={item.user.kind} />
         </p>
         <h3 className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className={`shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] ${s?.text}`}>{STATUS_VERBS[item.status]}</span>
           <Link to={logHref} className="t-film truncate text-[16px] leading-tight transition hover:text-neon sm:text-[17px]">
             {item.film.title}
           </Link>
