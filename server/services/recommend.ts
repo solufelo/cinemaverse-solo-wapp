@@ -10,6 +10,7 @@ export type Pick = {
   title: string
   releaseYear: number | null
   posterPath: string | null
+  backdropPath: string | null
   genres: string[]
   reason: string
 }
@@ -97,7 +98,9 @@ async function communityCandidates(db: Db, userId: string): Promise<Candidate[]>
   }>(
     `select tmdb_id as "tmdbId", max(title) as title, max(release_year) as "releaseYear",
             max(poster_path) as "posterPath", max(backdrop_path) as "backdropPath",
-            (array_agg(genres order by cardinality(genres) desc))[1] as genres,
+            -- jsonb, not array_agg(genres): array_agg needs every array the same length and
+            -- players can log the same film with different genre lists.
+            (jsonb_agg(to_jsonb(genres) order by cardinality(genres) desc)) -> 0 as genres,
             avg(rating)::float8 as avg, count(*)::int as n
        from watch_entries where user_id <> $1 and status <> 'dropped'
       group by tmdb_id`,
@@ -156,6 +159,7 @@ export function tasteMatch(entries: Entry[], candidates: Candidate[], limit = 8)
     title: c.title,
     releaseYear: c.releaseYear,
     posterPath: c.posterPath,
+    backdropPath: c.backdropPath,
     genres: c.genres,
     reason: explain(c, anchors, affinity),
   }))
@@ -244,6 +248,7 @@ async function openRouterPicks(entries: Entry[], { env, fetch: fetchImpl }: { en
         title: known?.title ?? p.title,
         releaseYear: known?.releaseYear ?? p.year ?? null,
         posterPath: known?.posterPath ?? null,
+        backdropPath: known?.backdropPath ?? null,
         genres: known?.genres ?? [],
         reason: p.reason,
       }

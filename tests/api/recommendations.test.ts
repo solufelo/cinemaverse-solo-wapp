@@ -55,7 +55,22 @@ describe('GET /api/recommendations', () => {
     expect(res.body).toMatchObject({ source: 'taste-match', aiConfigured: false, notice: null, basedOn: 1, model: null })
     expect(res.body.items.length).toBe(8)
     expect(res.body.items.map((i: { tmdbId: number }) => i.tmdbId)).not.toContain(329865)
+    // Catalog picks carry a backdrop so the client can lead with a banner.
+    expect(res.body.items[0].backdropPath).toMatch(/^\/.+\.jpg$/)
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('still works when players logged the same film with different genre lists', async () => {
+    // Regression: array_agg over genre arrays of different lengths used to 500 the endpoint.
+    const { call, signup } = makeClient(db)
+    const a = await signup('genre_short')
+    const b = await signup('genre_long')
+    const me = await signup('genre_reader')
+    await call('PUT', '/api/watchlist/4977', { cookie: a, body: { film: { ...FILM, title: 'Paprika', genres: ['Animation'] }, status: 'completed', rating: 9 } })
+    await call('PUT', '/api/watchlist/4977', { cookie: b, body: { film: { ...FILM, title: 'Paprika', genres: ['Animation', 'Science Fiction', 'Thriller'] }, status: 'completed', rating: 8 } })
+    const res = await call('GET', '/api/recommendations', { cookie: me })
+    expect(res.status).toBe(200)
+    expect(res.body.items.length).toBeGreaterThan(0)
   })
 
   it('gives a cold-start player community favourites', async () => {
@@ -90,9 +105,13 @@ describe('GET /api/recommendations', () => {
     const res = await call('GET', '/api/recommendations', { cookie })
     expect(res.body).toMatchObject({ source: 'openrouter', model: 'test/model', aiConfigured: true, notice: null })
     expect(res.body.items.map((i: { title: string }) => i.title)).toEqual(['Blade Runner 2049', 'Interstellar', '2001: A Space Odyssey', 'Solaris'])
-    expect(res.body.items[0]).toMatchObject({ tmdbId: 335984, posterPath: expect.stringMatching(/^\/.+\.jpg$/) })
-    // Not in the catalog and no TMDB key: still shown, just without a poster or id.
-    expect(res.body.items[3]).toMatchObject({ tmdbId: null, posterPath: null, releaseYear: 1972 })
+    expect(res.body.items[0]).toMatchObject({
+      tmdbId: 335984,
+      posterPath: expect.stringMatching(/^\/.+\.jpg$/),
+      backdropPath: expect.stringMatching(/^\/.+\.jpg$/),
+    })
+    // Not in the catalog and no TMDB key: still shown, just without a poster, backdrop or id.
+    expect(res.body.items[3]).toMatchObject({ tmdbId: null, posterPath: null, backdropPath: null, releaseYear: 1972 })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
