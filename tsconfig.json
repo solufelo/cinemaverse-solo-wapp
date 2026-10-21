@@ -1,0 +1,19 @@
+{
+  // Type-checks the API, shared modules, scripts and tests. The React client is JSX and is checked by the Vite build.
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["server", "shared", "netlify/functions", "scripts", "tests", "vitest.config.ts", "playwright.config.ts"]
+}

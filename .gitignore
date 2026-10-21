@@ -10,3 +10,8 @@ dist/
 # Don't ignore example dotenv files.
 !.env.example
 !.env.*.example
+
+# Embedded dev database (PGlite) and test output
+.data/
+test-results/
+playwright-report/

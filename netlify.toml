@@ -1,14 +1,27 @@
-# Vite SPA — not Next.js. Skip Netlify's Next runtime if auto-detected.
+# Vite SPA + Netlify Functions (not Next.js). Skip Netlify's Next runtime if auto-detected.
 [build]
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
+[functions]
+  node_bundler = "esbuild"
+  # PGlite loads its WASM + data files from its package folder at runtime, so ship the package as-is.
+  external_node_modules = ["@electric-sql/pglite", "pg"]
+
+# /api/* is routed by netlify/functions/api.mts (config.path); this SPA fallback covers everything else.
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
