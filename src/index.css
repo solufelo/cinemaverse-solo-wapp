@@ -3,33 +3,92 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
-    @apply bg-void font-body text-slate-200 antialiased;
+    @apply min-h-screen bg-void font-body text-[16px] font-medium text-slate-300 antialiased;
     background-image:
-      linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
-    background-size: 48px 48px;
+      radial-gradient(1200px 500px at 50% -200px, rgba(0, 245, 255, 0.08), transparent 70%),
+      linear-gradient(rgba(0, 245, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 245, 255, 0.025) 1px, transparent 1px);
+    background-size: 100% 100%, 48px 48px, 48px 48px;
+    background-attachment: fixed, scroll, scroll;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-neon/70 ring-offset-2 ring-offset-void;
+  }
+  ::selection {
+    @apply bg-neon/30 text-white;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @layer components {
-  .glow-border {
-    @apply border border-neon/30 shadow-neon;
+  .eyebrow {
+    @apply font-display text-[11px] font-medium uppercase tracking-[0.3em] text-neon;
+  }
+  .page-title {
+    @apply font-display text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl;
   }
 
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg px-5 py-2.5 font-display text-[13px] font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-neon to-cyan-400 px-5 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-void transition hover:brightness-110;
+    @apply btn bg-gradient-to-r from-neon to-cyan-300 text-void shadow-[0_0_24px_-6px_rgba(0,245,255,0.7)] hover:brightness-110 active:brightness-95;
   }
-
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-md border border-neon/40 px-5 py-2.5 font-display text-sm font-semibold uppercase tracking-wider text-neon transition hover:bg-neon/10;
+    @apply btn border border-neon/40 text-neon hover:bg-neon/10;
+  }
+  .btn-quiet {
+    @apply btn border border-white/10 text-slate-200 hover:border-white/25 hover:bg-white/5;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-[11px];
   }
 
   .input-field {
-    @apply w-full rounded-md border border-white/10 bg-panel/80 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-neon/60 focus:ring-1 focus:ring-neon/40;
+    @apply w-full rounded-lg border border-white/10 bg-void/70 px-4 py-3 text-[16px] text-ink outline-none transition placeholder:text-slate-500 focus:border-neon/60 focus:ring-1 focus:ring-neon/40;
+  }
+  .field-label {
+    @apply mb-2 block font-display text-[11px] uppercase tracking-[0.2em] text-muted;
   }
 
   .panel {
-    @apply rounded-xl border border-white/10 bg-panel/90 backdrop-blur-sm;
+    @apply rounded-2xl border border-white/[0.07] bg-gradient-to-b from-raised/90 to-panel/90 shadow-card backdrop-blur-sm;
+  }
+  .glow-border {
+    @apply border-neon/30 shadow-neon;
+  }
+
+  .tab {
+    @apply inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-transparent px-4 py-1.5 font-display text-[11px] uppercase tracking-wider text-muted transition hover:text-white;
+  }
+  .tab[aria-current='page'],
+  .tab[aria-selected='true'] {
+    @apply border-neon/40 bg-neon/10 text-neon;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-white/[0.06];
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

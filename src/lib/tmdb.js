@@ -1,98 +1,67 @@
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w500'
+import { CATALOG } from '../../shared/catalog.ts'
+import { TMDB_GENRES } from '../../shared/constants.ts'
 
-const FALLBACK_MOVIES = [
-  {
-    id: 278,
-    title: 'The Shawshank Redemption',
-    poster_path: '/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg',
-    release_date: '1994-09-23',
-    vote_average: 8.7,
-  },
-  {
-    id: 238,
-    title: 'The Godfather',
-    poster_path: '/3bhkrj58Vtu7enYsRolD1fZdja1.jpg',
-    release_date: '1972-03-24',
-    vote_average: 8.7,
-  },
-  {
-    id: 155,
-    title: 'The Dark Knight',
-    poster_path: '/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
-    release_date: '2008-07-16',
-    vote_average: 8.5,
-  },
-  {
-    id: 680,
-    title: 'Pulp Fiction',
-    poster_path: '/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg',
-    release_date: '1994-09-10',
-    vote_average: 8.5,
-  },
-  {
-    id: 550,
-    title: 'Fight Club',
-    poster_path: '/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg',
-    release_date: '1999-10-15',
-    vote_average: 8.4,
-  },
-]
+const IMG = 'https://image.tmdb.org/t/p/'
 
-export function posterUrl(path) {
-  if (!path) return '/placeholder-poster.svg'
-  return `${TMDB_IMG}${path}`
+export function imageUrl(path, size = 'w342') {
+  return path ? `${IMG}${size}${path}` : null
 }
 
-async function tmdbFetch(path, params = {}) {
-  const query = new URLSearchParams(params).toString()
-  const suffix = query ? `?${query}` : ''
-
-  try {
-    const devKey = import.meta.env.VITE_TMDB_API_KEY
-    if (devKey && import.meta.env.DEV) {
-      const res = await fetch(`https://api.themoviedb.org/3/${path}${suffix}&api_key=${devKey}`)
-      if (!res.ok) throw new Error('TMDB request failed')
-      return res.json()
-    }
-
-    const res = await fetch(
-      `/.netlify/functions/tmdb?path=${encodeURIComponent(path)}${query ? `&${query}` : ''}`,
-    )
-    if (!res.ok) throw new Error('TMDB proxy failed')
-    return res.json()
-  } catch {
-    if (path.startsWith('search/movie') && params.query) {
-      const q = params.query.toLowerCase()
-      return {
-        results: FALLBACK_MOVIES.filter((m) => m.title.toLowerCase().includes(q)),
-      }
-    }
-    return { results: FALLBACK_MOVIES }
+/** TMDB result -> the film shape the app and API use. */
+export function normalizeFilm(m) {
+  return {
+    tmdbId: m.id,
+    title: m.title,
+    releaseYear: Number((m.release_date || '').slice(0, 4)) || null,
+    posterPath: m.poster_path || null,
+    backdropPath: m.backdrop_path || null,
+    genres: (m.genre_ids || m.genres?.map((g) => g.id) || []).map((id) => TMDB_GENRES[id]).filter(Boolean),
+    voteAverage: typeof m.vote_average === 'number' ? m.vote_average : null,
   }
 }
 
-export async function getTrending() {
-  const data = await tmdbFetch('trending/movie/week')
-  return data.results || []
+async function proxy(path, params = {}, signal) {
+  const qs = new URLSearchParams({ path, ...params })
+  const res = await fetch(`/.netlify/functions/tmdb?${qs}`, { signal })
+  if (!res.ok) throw new Error(`TMDB proxy ${res.status}`)
+  return res.json()
 }
 
-export async function searchMovies(query) {
-  if (!query.trim()) return []
-  const data = await tmdbFetch('search/movie', { query: query.trim() })
-  return data.results || []
+/**
+ * Trending films. Falls back to the bundled offline catalog when the proxy has no key
+ * or TMDB is down, and says which one it used so the UI can label it.
+ */
+export async function getTrending(signal) {
+  try {
+    const data = await proxy('trending/movie/week', {}, signal)
+    const films = (data.results || []).map(normalizeFilm)
+    if (films.length) return { films, source: 'tmdb' }
+  } catch (err) {
+    if (err.name === 'AbortError') throw err
+  }
+  return { films: [...CATALOG].sort((a, b) => b.voteAverage - a.voteAverage), source: 'catalog' }
 }
 
-export const STATUS_OPTIONS = [
-  { value: 'watching', label: 'Watching', color: 'text-neon' },
-  { value: 'completed', label: 'Completed', color: 'text-acid' },
-  { value: 'planned', label: 'Queued', color: 'text-plasma' },
-  { value: 'dropped', label: 'Dropped', color: 'text-red-400' },
-]
-
-export function statusLabel(value) {
-  return STATUS_OPTIONS.find((s) => s.value === value)?.label || value
+export async function searchFilms(query, signal) {
+  const q = query.trim()
+  if (!q) return { films: [], source: 'tmdb' }
+  try {
+    const data = await proxy('search/movie', { query: q }, signal)
+    return { films: (data.results || []).map(normalizeFilm), source: 'tmdb' }
+  } catch (err) {
+    if (err.name === 'AbortError') throw err
+    const needle = q.toLowerCase()
+    return { films: CATALOG.filter((f) => f.title.toLowerCase().includes(needle)), source: 'catalog' }
+  }
 }
 
-export function statusColor(value) {
-  return STATUS_OPTIONS.find((s) => s.value === value)?.color || 'text-slate-300'
+export async function getFilm(tmdbId, signal) {
+  const known = CATALOG.find((f) => f.tmdbId === tmdbId)
+  try {
+    const data = await proxy(`movie/${tmdbId}`, {}, signal)
+    if (data?.id) return normalizeFilm(data)
+  } catch (err) {
+    if (err.name === 'AbortError') throw err
+  }
+  return known || null
 }

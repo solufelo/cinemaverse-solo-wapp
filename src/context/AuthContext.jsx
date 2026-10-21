@@ -1,124 +1,53 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import {
-  getSessionUser,
-  signInLocal,
-  signOutLocal,
-  signUpLocal,
-} from '../lib/storage'
-import {
-  getSessionSupabase,
-  signInSupabase,
-  signOutSupabase,
-  signUpSupabase,
-  supabase,
-  supabaseEnabled,
-} from '../lib/supabase'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { api } from '../lib/api'
 
 const AuthContext = createContext(null)
 
+/** Session lives in an HttpOnly cookie; the client only ever asks the server who it is. */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const mode = supabaseEnabled ? 'supabase' : 'local'
 
-  useEffect(() => {
-    let mounted = true
-
-    async function load() {
-      try {
-        if (supabaseEnabled) {
-          const session = await getSessionSupabase()
-          if (!mounted) return
-          if (session?.user) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email,
-              username:
-                session.user.user_metadata?.username ||
-                session.user.email?.split('@')[0] ||
-                'player',
-            })
-          }
-        } else {
-          setUser(getSessionUser())
-        }
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-
-    load()
-
-    if (supabaseEnabled && supabase) {
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            username:
-              session.user.user_metadata?.username ||
-              session.user.email?.split('@')[0] ||
-              'player',
-          })
-        } else {
-          setUser(null)
-        }
-      })
-      return () => {
-        mounted = false
-        sub.subscription.unsubscribe()
-      }
-    }
-
-    return () => {
-      mounted = false
+  const refresh = useCallback(async () => {
+    try {
+      const { user } = await api('/auth/me')
+      setUser(user)
+      return user
+    } catch {
+      setUser(null)
+      return null
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   const value = useMemo(
     () => ({
       user,
       loading,
-      mode,
-      async signUp({ username, email, password }) {
-        if (supabaseEnabled) {
-          await signUpSupabase({ username, email, password })
-          const session = await getSessionSupabase()
-          if (session?.user) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email,
-              username,
-            })
-          }
-          return
-        }
-        const u = await signUpLocal({ username, email, password })
-        setUser(u)
+      refresh,
+      async signUp(fields) {
+        await api('/auth/signup', { method: 'POST', body: fields })
+        return refresh()
       },
-      async signIn({ email, password }) {
-        if (supabaseEnabled) {
-          const authUser = await signInSupabase({ email, password })
-          setUser({
-            id: authUser.id,
-            email: authUser.email,
-            username:
-              authUser.user_metadata?.username ||
-              authUser.email?.split('@')[0] ||
-              'player',
-          })
-          return
-        }
-        const u = await signInLocal({ email, password })
-        setUser(u)
+      async signIn(fields) {
+        await api('/auth/login', { method: 'POST', body: fields })
+        return refresh()
+      },
+      async startDemo() {
+        await api('/auth/demo', { method: 'POST' })
+        return refresh()
       },
       async signOut() {
-        if (supabaseEnabled) await signOutSupabase()
-        else signOutLocal()
+        await api('/auth/logout', { method: 'POST' }).catch(() => {})
         setUser(null)
       },
     }),
-    [user, loading, mode],
+    [user, loading, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

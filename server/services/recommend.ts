@@ -171,7 +171,7 @@ function explain(c: Candidate, anchors: Entry[], affinity: Map<string, number>) 
   }
   const community =
     c.communityAvg && c.communityCount > 0
-      ? ` Players rate it ${c.communityAvg.toFixed(1)}/10.`
+      ? ` Players rate it ${Number(c.communityAvg.toFixed(1))}/10.`
       : ''
   if (best) {
     const how = best.anchor.rating ? `you rated ${best.anchor.title} ${best.anchor.rating}/10` : `${best.anchor.title} is on your list`
