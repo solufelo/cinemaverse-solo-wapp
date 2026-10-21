@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Plus, RefreshCw } from 'lucide-react'
-import { STATUS_LABELS, WATCH_STATUSES } from '../../shared/constants.ts'
+import { STATUS_LABELS, STATUS_VERBS, WATCH_STATUSES } from '../../shared/constants.ts'
 import ActivityCard, { ActivitySkeleton } from '../components/ActivityCard'
 import { DemoButton } from '../components/Navbar'
-import { Avatar, EmptyState, ErrorState, KindTag } from '../components/ui'
+import { Avatar, EmptyState, ErrorState, KindTag, STATUS_STYLES } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
+import { groupByDay, plural, timeAgo } from '../lib/format'
 
 const PAGE = 15
 
@@ -50,62 +51,73 @@ export default function FeedPage() {
     }
   }
 
+  // Each player once, with their latest post (the feed is newest first).
   const players = useMemo(() => {
     const seen = new Map()
-    for (const i of state.items) if (!seen.has(i.user.username)) seen.set(i.user.username, i.user)
+    for (const i of state.items) if (!seen.has(i.user.username)) seen.set(i.user.username, i)
     return [...seen.values()].slice(0, 8)
   }, [state.items])
+  const days = useMemo(() => groupByDay(state.items), [state.items])
 
   const setStatus = (s) => setParams(s ? { status: s } : {}, { replace: true })
 
   return (
     <main>
-      <header className="frame relative flex flex-wrap items-end justify-between gap-6 pb-10 pt-10 sm:pt-14">
-        <div>
+      <header className="frame grid gap-8 pb-10 pt-10 sm:pb-12 sm:pt-16 lg:grid-cols-12 lg:items-end">
+        <div className="lg:col-span-7">
           <p className="hud-label" style={{ '--mark': '#ff2d95' }}>
             Live <span className="text-slate-600">/</span> newest first
           </p>
           <h1 className="t-h1 mt-5">Squad feed</h1>
           <p className="mt-4 max-w-md text-muted">Every log, status change and rating from the squad, as it happens.</p>
         </div>
-        <div className="absolute right-5 top-8 flex gap-2 sm:static">
-          <button type="button" onClick={() => load()} className="btn-quiet btn-sm" disabled={state.loading} aria-label="Refresh feed">
-            <RefreshCw className={`h-3.5 w-3.5 ${state.loading ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">Refresh</span>
-          </button>
-          {user ? (
-            <Link to="/log" className="btn-primary btn-sm hidden sm:inline-flex">
-              <Plus className="h-3.5 w-3.5" /> Log a film
-            </Link>
-          ) : null}
-        </div>
+        {players.length ? (
+          <div className="hidden items-center gap-5 sm:flex lg:col-span-5 lg:justify-end">
+            <div className="flex gap-1.5">
+              {players.slice(0, 6).map((p) => (
+                <Avatar key={p.user.username} user={p.user} size={30} />
+              ))}
+            </div>
+            <p className="font-mono text-[11px] uppercase leading-relaxed tracking-[0.12em] text-muted">
+              <span className="text-white">{plural(players.length, 'player')}</span> on the feed
+              <br />
+              Last post <span className="text-white">{timeAgo(state.items[0].createdAt)}</span>
+            </p>
+          </div>
+        ) : null}
       </header>
 
       <div className="sticky top-16 z-30 border-b border-white/[0.07] bg-void/85 backdrop-blur-xl">
-        <div className="frame">
-          <div className="tabs mask-fade-x -mx-5 border-b-0 px-5 sm:mx-0 sm:px-0 sm:[mask-image:none]" role="tablist" aria-label="Filter by status">
+        <div className="frame flex items-center gap-4">
+          <div className="tabs mask-fade-x -ml-5 min-w-0 flex-1 border-b-0 pl-5 sm:ml-0 sm:pl-0 sm:[mask-image:none]" role="tablist" aria-label="Filter by status">
             <button type="button" role="tab" className="tab" aria-selected={!status} onClick={() => setStatus(null)}>
               All
             </button>
             {WATCH_STATUSES.map((s) => (
               <button key={s} type="button" role="tab" className="tab" aria-selected={status === s} onClick={() => setStatus(s)}>
+                <span className={`h-1.5 w-1.5 ${STATUS_STYLES[s].bg}`} aria-hidden="true" />
                 {STATUS_LABELS[s]}
               </button>
             ))}
           </div>
+          <button type="button" onClick={() => load()} className="btn-icon shrink-0 sm:w-auto sm:gap-2 sm:rounded-full sm:px-3.5" disabled={state.loading} aria-label="Refresh feed">
+            <RefreshCw className={`h-4 w-4 ${state.loading ? 'animate-spin' : ''}`} />
+            <span className="hidden font-mono text-[11px] uppercase tracking-[0.14em] sm:inline">Refresh</span>
+          </button>
         </div>
       </div>
 
       <div className="frame grid gap-14 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-8">
           {!user ? (
-            <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 lg:hidden">
+            <div className="mt-6 flex items-center justify-between gap-4 border-l-2 border-neon bg-white/[0.03] py-3 pl-4 pr-3 lg:hidden">
               <p className="text-[15px] leading-snug text-slate-300">Log a film in two taps.</p>
               <DemoButton className="btn-primary btn-sm shrink-0">Try the demo</DemoButton>
             </div>
           ) : null}
 
           {state.loading && !state.items.length ? (
-            <ActivitySkeleton count={4} />
+            <ActivitySkeleton count={5} />
           ) : state.error && !state.items.length ? (
             <div className="pt-8">
               <ErrorState error={state.error} onRetry={() => load()} title="The feed didn't load" />
@@ -133,22 +145,31 @@ export default function FeedPage() {
             </div>
           ) : (
             <div className={`transition-opacity duration-300 ${state.loading ? 'opacity-50' : ''}`}>
-              {state.items.map((item) => (
-                <ActivityCard
-                  key={item.id}
-                  item={item}
-                  onRemoved={(id) => setState((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }))}
-                />
+              {days.map((day) => (
+                <section key={day.key} aria-label={day.label} className="[&:first-child>h2]:pt-8">
+                  <h2 className="flex items-center gap-4 pb-1 pt-12 font-mono text-[11px] uppercase tracking-[0.2em] text-white">
+                    {day.label}
+                    <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" aria-hidden="true" />
+                    <span className="text-muted">{plural(day.items.length, 'post')}</span>
+                  </h2>
+                  {day.items.map((item) => (
+                    <ActivityCard
+                      key={item.id}
+                      item={item}
+                      onRemoved={(id) => setState((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }))}
+                    />
+                  ))}
+                </section>
               ))}
               {state.cursor ? (
-                <div className="flex justify-center pt-10">
-                  <button type="button" onClick={loadMore} disabled={state.loadingMore} className="btn-ghost min-w-48">
+                <div className="flex justify-center pt-12">
+                  <button type="button" onClick={loadMore} disabled={state.loadingMore} className="btn-quiet min-w-48">
                     {state.loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {state.loadingMore ? 'Loading' : 'Load more'}
                   </button>
                 </div>
               ) : (
-                <p className="flex items-center gap-4 pt-10 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
+                <p className="flex items-center gap-4 pt-12 font-mono text-[11px] uppercase tracking-[0.3em] text-muted">
                   <span className="h-px flex-1 bg-white/10" /> End of feed <span className="h-px flex-1 bg-white/10" />
                 </p>
               )}
@@ -157,7 +178,7 @@ export default function FeedPage() {
           )}
         </div>
 
-        <aside className="hidden space-y-12 pt-8 lg:col-span-4 lg:block lg:sticky lg:top-36 lg:self-start">
+        <aside className="hidden space-y-12 pt-10 lg:col-span-4 lg:block lg:sticky lg:top-36 lg:self-start">
           {!user ? (
             <div className="hud-corners rounded-sm border border-white/[0.07] bg-white/[0.02] p-7" style={{ '--inset': '-1px', '--corner': 'rgba(0,245,255,.8)' }}>
               <p className="hud-label">Join the feed</p>
@@ -181,17 +202,21 @@ export default function FeedPage() {
           )}
           {players.length ? (
             <div>
-              <p className="hud-label mb-4">In the squad</p>
+              <p className="hud-label mb-4">Now playing</p>
               <ul className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
-                {players.map((p) => (
+                {players.map(({ user: p, status: s, film }) => (
                   <li key={p.username}>
                     <Link to={`/u/${p.username}`} className="group flex items-center gap-3 py-3 transition">
                       <Avatar user={p} size={32} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold text-ink transition group-hover:text-neon">{p.displayName}</span>
-                        <span className="block truncate font-mono text-[11.5px] text-muted">@{p.username}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="truncate font-semibold text-ink transition group-hover:text-neon">{p.displayName}</span>
+                          <KindTag kind={p.kind} />
+                        </span>
+                        <span className="block truncate text-[13px] text-muted">
+                          <span className={`font-mono text-[10.5px] uppercase tracking-[0.1em] ${STATUS_STYLES[s].text}`}>{STATUS_VERBS[s]}</span> {film.title}
+                        </span>
                       </span>
-                      <KindTag kind={p.kind} />
                     </Link>
                   </li>
                 ))}

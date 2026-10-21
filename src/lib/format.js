@@ -16,6 +16,36 @@ export function memberSince(iso) {
 
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
+/**
+ * Newest-first feed items -> [{ key, label, items }] by local calendar day:
+ * "Today", "Yesterday", a weekday within the week, then "Oct 3".
+ */
+export function groupByDay(items, now = Date.now()) {
+  const startOf = (t) => new Date(t).setHours(0, 0, 0, 0)
+  const today = startOf(now)
+  const groups = []
+  for (const item of items) {
+    const day = startOf(item.createdAt)
+    const last = groups[groups.length - 1]
+    if (last?.key === day) {
+      last.items.push(item)
+      continue
+    }
+    // Math.round, not floor: a day across a DST change is 23 or 25 hours.
+    const ago = Math.round((today - day) / 86400000)
+    const label =
+      ago <= 0
+        ? 'Today'
+        : ago === 1
+          ? 'Yesterday'
+          : ago < 7
+            ? new Date(day).toLocaleDateString('en', { weekday: 'long' })
+            : new Date(day).toLocaleDateString('en', { month: 'short', day: 'numeric' })
+    groups.push({ key: day, label, items: [item] })
+  }
+  return groups
+}
+
 /** 3 -> "03": HUD-style index numerals. */
 export const pad2 = (n) => String(n).padStart(2, '0')
 

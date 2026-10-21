@@ -329,6 +329,53 @@
   transform: none;
 }
 
+/* Poster tiles "scan in": a wipe led by a cyan scan line. The clip is an animation, not the
+   resting state, because Chromium's IntersectionObserver ignores fully clipped targets. It keeps
+   24px of margin so hover brackets outside the tile are never cut off. */
+[data-reveal='scan'] {
+  position: relative;
+  transform: none;
+  transition: none;
+}
+[data-reveal='scan'][data-in] {
+  animation: scan-wipe 0.95s cubic-bezier(0.6, 0, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+@keyframes scan-wipe {
+  from {
+    clip-path: inset(-24px -24px 100% -24px);
+  }
+  to {
+    clip-path: inset(-24px);
+  }
+}
+[data-reveal='scan']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(to bottom, transparent calc(100% - 28px), rgba(0, 245, 255, 0.14) calc(100% - 2px), #00f5ff calc(100% - 2px));
+}
+[data-reveal='scan'][data-in]::before {
+  animation: scan-line 0.95s cubic-bezier(0.6, 0, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+@keyframes scan-line {
+  0% {
+    opacity: 1;
+    transform: translateY(-100%);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
 /* Route change: content settles in while a scan bar sweeps under the nav. */
 .route-in {
   /* backwards, not both: a held transform would trap fixed/sticky children after the animation. */
@@ -405,6 +452,13 @@
   [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+  [data-reveal='scan'][data-in] {
+    animation: none;
+  }
+  [data-reveal='scan']::before {
+    animation: none !important;
+    opacity: 0 !important;
   }
   .route-in,
   .route-bar,

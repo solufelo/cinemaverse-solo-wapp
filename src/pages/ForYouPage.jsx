@@ -12,23 +12,26 @@ export default function ForYouPage() {
   const recs = useApi('/recommendations')
   const data = recs.data
   const [top, ...rest] = data?.items ?? []
+  // Two runners-up get wide cards; the rest sit in a poster grid. Seven picks fill both rows exactly.
+  const runners = rest.slice(0, 2)
+  const range = rest.slice(2)
 
   return (
     <main className="frame pt-10 sm:pt-14">
-      <header className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="hud-label" style={{ '--mark': '#ff2d95' }}>
-            Recommendations
-          </p>
-          <h1 className="t-h1 mt-5">For you</h1>
-          <p className="mt-4 text-muted">{data ? `Ranked from ${plural(data.basedOn, 'film')} in your log.` : 'Reading your log…'}</p>
-        </div>
-        <button type="button" onClick={recs.reload} disabled={recs.loading} className="btn-quiet btn-sm">
-          <RefreshCw className={`h-3.5 w-3.5 ${recs.loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
+      <header>
+        <p className="hud-label" style={{ '--mark': '#ff2d95' }}>
+          Recommendations
+        </p>
+        <h1 className="t-h1 mt-5">For you</h1>
+        <p className="mt-4 text-muted">{data ? `Ranked from ${plural(data.basedOn, 'film')} in your log.` : 'Reading your log…'}</p>
       </header>
 
-      {data ? <SourceLine data={data} /> : <div className="mt-10 h-px bg-white/[0.07]" />}
+      <div className="mt-10 flex items-start gap-4 border-y border-white/[0.07] py-5">
+        {data ? <SourceLine data={data} /> : <p className="flex-1 font-mono text-[11.5px] uppercase tracking-[0.14em] text-muted">Matching…</p>}
+        <button type="button" onClick={recs.reload} disabled={recs.loading} className="btn-icon -my-1.5 shrink-0" aria-label="Refresh picks" title="Refresh picks">
+          <RefreshCw className={`h-4 w-4 ${recs.loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
       <div className="mt-10">
         {recs.loading && !data ? (
@@ -53,12 +56,19 @@ export default function ForYouPage() {
         ) : (
           <div className={`transition-opacity duration-300 ${recs.loading ? 'opacity-50' : ''}`}>
             <TopPick pick={top} />
-            {rest.length ? (
+            {runners.length ? (
+              <ul className="mt-6 grid gap-6 md:grid-cols-2">
+                {runners.map((pick, i) => (
+                  <RunnerUp key={`${pick.tmdbId ?? pick.title}-${i}`} pick={pick} rank={i + 2} />
+                ))}
+              </ul>
+            ) : null}
+            {range.length ? (
               <>
                 <p className="hud-label mb-8 mt-20">Also in range</p>
-                <ul className="grid grid-cols-2 gap-x-5 gap-y-12 md:grid-cols-3 lg:grid-cols-4">
-                  {rest.map((pick, i) => (
-                    <PickCard key={`${pick.tmdbId ?? pick.title}-${i}`} pick={pick} rank={i + 2} />
+                <ul className="grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 lg:grid-cols-5">
+                  {range.map((pick, i) => (
+                    <PickCard key={`${pick.tmdbId ?? pick.title}-${i}`} pick={pick} rank={i + 4} />
                   ))}
                 </ul>
               </>
@@ -74,7 +84,7 @@ function SourceLine({ data }) {
   const ai = data.source === 'openrouter'
   const Icon = ai ? Bot : Cpu
   return (
-    <div className="mt-10 flex flex-col gap-3 border-y border-white/[0.07] py-5 sm:flex-row sm:items-start sm:gap-6">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
       <p className="flex shrink-0 items-center gap-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-white">
         <Icon className={`h-4 w-4 ${ai ? 'text-plasma' : 'text-neon'}`} />
         {ai ? `AI picks · ${data.model}` : 'Taste-match picks'}
@@ -116,7 +126,7 @@ function useQueue(pick) {
   return [state, queue]
 }
 
-function Actions({ pick, size = '' }) {
+function Actions({ pick, size = '', quiet = false }) {
   const [state, queue] = useQueue(pick)
   if (!pick.tmdbId) {
     return (
@@ -127,11 +137,16 @@ function Actions({ pick, size = '' }) {
   }
   return (
     <>
-      <button type="button" onClick={queue} disabled={state !== 'idle'} className={`${state === 'done' ? 'btn-ghost text-acid disabled:opacity-100' : 'btn-primary'} ${size}`}>
-        {state === 'done' ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+      <button
+        type="button"
+        onClick={queue}
+        disabled={state !== 'idle'}
+        className={`${state === 'done' ? 'btn-ghost text-acid disabled:opacity-100' : quiet ? 'btn-quiet hover:text-neon' : 'btn-primary'} ${size}`}
+      >
+        {state === 'done' ? <Check className="h-3.5 w-3.5" /> : <Plus className={`h-3.5 w-3.5 ${quiet ? 'text-neon' : ''}`} />}
         {state === 'done' ? 'Queued' : state === 'busy' ? 'Queuing…' : 'Queue it'}
       </button>
-      <Link to={`/log?film=${pick.tmdbId}`} className={`btn-quiet ${size}`}>
+      <Link to={`/log?film=${pick.tmdbId}`} className={quiet ? `link-arrow px-2 ${size}` : `btn-quiet ${size}`}>
         Log it
       </Link>
     </>
@@ -174,7 +189,7 @@ function TopPick({ pick }) {
 
 function PickCard({ pick, rank }) {
   return (
-    <li className="group flex flex-col" data-reveal style={{ '--i': (rank - 2) % 4 }}>
+    <li className="group flex flex-col" data-reveal="scan" style={{ '--i': (rank - 4) % 5 }}>
       <div className="relative">
         <span className="lock-on hud-corners block">
           <span className="block overflow-hidden rounded-[5px] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-white/25">
@@ -186,8 +201,32 @@ function PickCard({ pick, rank }) {
       <h2 className="t-film mt-4 text-[17px] leading-tight">{pick.title}</h2>
       <p className="meta mt-1.5 truncate">{[pick.releaseYear, ...pick.genres.slice(0, 2)].filter(Boolean).join(' · ')}</p>
       <p className="mt-3 line-clamp-3 flex-1 text-[14.5px] leading-snug text-slate-400">{pick.reason}</p>
-      <div className="mt-5 flex flex-wrap gap-2">
-        <Actions pick={pick} size="btn-sm" />
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Actions pick={pick} size="btn-sm" quiet />
+      </div>
+    </li>
+  )
+}
+
+/** Picks 02 and 03: poster beside the reason, a step down from the top pick. */
+function RunnerUp({ pick, rank }) {
+  return (
+    <li className="group grid grid-cols-[96px_1fr] gap-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:grid-cols-[132px_1fr] sm:gap-7 sm:p-6" data-reveal style={{ '--i': rank - 2 }}>
+      <span className="lock-on hud-corners block self-start">
+        <span className="block overflow-hidden rounded-[5px] ring-1 ring-white/10">
+          <Poster path={pick.posterPath} title={pick.title} size="w342" className="w-full transition duration-700 ease-out group-hover:scale-[1.04]" />
+        </span>
+      </span>
+      <div className="flex min-w-0 flex-col">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+          <span className="text-neon">Pick {pad2(rank)}</span>
+        </p>
+        <h2 className="t-film mt-2 text-[20px] leading-tight sm:text-[24px]">{pick.title}</h2>
+        <p className="meta mt-2 truncate">{[pick.releaseYear, ...pick.genres.slice(0, 2)].filter(Boolean).join(' · ')}</p>
+        <p className="mt-4 line-clamp-3 flex-1 text-[15px] leading-snug text-slate-300">{pick.reason}</p>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <Actions pick={pick} size="btn-sm" quiet />
+        </div>
       </div>
     </li>
   )

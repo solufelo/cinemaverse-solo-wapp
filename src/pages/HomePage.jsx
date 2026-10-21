@@ -46,7 +46,7 @@ export default function HomePage() {
       <Ticker items={items} loading={feed.loading && !feed.data} />
 
       {/* Trending rail */}
-      <section className="pt-24 sm:pt-32" aria-labelledby="trending">
+      <section className="pt-20 sm:pt-24" aria-labelledby="trending">
         <TrendingRail films={trending.films.slice(0, 10)} source={trending.source} loading={trending.loading} />
       </section>
 
@@ -114,7 +114,7 @@ export default function HomePage() {
           </EmptyState>
         ) : (
           <div className="grid gap-x-10 gap-y-14 md:grid-cols-3">
-            {[...items.filter((i) => i.note), ...items.filter((i) => !i.note)].slice(0, 3).map((item, i) => (
+            {takes(items).map((item, i) => (
               <TakeCard key={item.id} item={item} index={i} />
             ))}
           </div>
@@ -124,6 +124,14 @@ export default function HomePage() {
       <FinalCall films={trending.films} user={user} />
     </main>
   )
+}
+
+/** Three posts for the home page: takes first, and never the same film twice. */
+function takes(items) {
+  const films = new Set()
+  return [...items.filter((i) => i.note), ...items.filter((i) => !i.note)]
+    .filter((i) => !films.has(i.film.tmdbId) && films.add(i.film.tmdbId))
+    .slice(0, 3)
 }
 
 function Hero({ featured, loading, user }) {
@@ -373,12 +381,12 @@ function TrendingRail({ films, source, loading }) {
               </li>
             ))
           : films.map((film, i) => (
-              <li key={film.tmdbId} className={`group shrink-0 snap-start ${i >= 9 ? 'pl-[6rem] sm:pl-[9.5rem]' : 'pl-[3.75rem] sm:pl-[5.75rem]'}`} data-reveal style={{ '--i': Math.min(i, 6) }}>
+              <li key={film.tmdbId} className={`group shrink-0 snap-start ${i >= 9 ? 'pl-[6rem] sm:pl-[9.5rem]' : 'pl-[3.75rem] sm:pl-[5.75rem]'}`} data-reveal="scan" style={{ '--i': Math.min(i, 6) }}>
                 <Link to={`/log?film=${film.tmdbId}`} className="relative block w-[148px] sm:w-[196px]">
                   <span className="relative block">
                     <span
                       aria-hidden="true"
-                      className="outline-num absolute bottom-[-0.07em] right-[calc(100%-0.55rem)] font-display font-black leading-none tracking-[-0.07em] transition-[-webkit-text-stroke-color] duration-500 group-hover:[-webkit-text-stroke-color:#00f5ff]"
+                      className="outline-num absolute bottom-[-0.07em] right-[calc(100%+0.2rem)] font-display font-black leading-none tracking-[-0.07em] transition-[-webkit-text-stroke-color] duration-500 group-hover:[-webkit-text-stroke-color:#00f5ff]"
                       style={{ fontSize: 'clamp(4.75rem, 7.5vw, 7.25rem)' }}
                     >
                       {i + 1}

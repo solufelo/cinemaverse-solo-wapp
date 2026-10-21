@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pad2, ratingWord, splitPercents, timeAgo } from '../../src/lib/format.js'
+import { groupByDay, pad2, ratingWord, splitPercents, timeAgo } from '../../src/lib/format.js'
 
 describe('pad2', () => {
   it('pads single digits for HUD numerals', () => {
@@ -44,5 +44,22 @@ describe('timeAgo', () => {
     expect(timeAgo('2026-10-20T11:59:50Z', now)).toBe('just now')
     expect(timeAgo('2026-10-20T11:40:00Z', now)).toBe('20 min. ago')
     expect(timeAgo('2026-10-20T09:00:00Z', now)).toBe('3 hr. ago')
+  })
+})
+
+describe('groupByDay', () => {
+  // Local-time dates, so the test holds in any timezone.
+  const now = new Date(2026, 9, 21, 15, 0).getTime() // Wednesday 21 Oct, 15:00
+  const at = (d, h) => ({ id: `${d}-${h}`, createdAt: new Date(2026, 9, d, h).toISOString() })
+
+  it('labels days the way a feed reads and keeps newest-first order', () => {
+    const groups = groupByDay([at(21, 14), at(21, 1), at(20, 23), at(18, 9), at(13, 9), at(2, 9)], now)
+    expect(groups.map((g) => g.label)).toEqual(['Today', 'Yesterday', 'Sunday', 'Oct 13', 'Oct 2'])
+    expect(groups[0].items.map((i) => i.id)).toEqual(['21-14', '21-1'])
+  })
+
+  it('treats a clock-skewed future post as today and handles an empty feed', () => {
+    expect(groupByDay([at(22, 1)], now)[0].label).toBe('Today')
+    expect(groupByDay([], now)).toEqual([])
   })
 })

@@ -137,7 +137,7 @@ function ProfilePage({ username }) {
           ) : (
             <ul className="grid grid-cols-3 gap-x-3 gap-y-6 sm:grid-cols-4 sm:gap-x-4 xl:grid-cols-5">
               {shelfEntries.map((e, i) => (
-                <li key={e.tmdbId} className="group" data-reveal style={{ '--i': i % 5 }}>
+                <li key={e.tmdbId} className="group" data-reveal="scan" style={{ '--i': i % 5 }}>
                   <Link to={`/log?film=${e.tmdbId}`} className="block">
                     <span className="lock-on hud-corners block" style={{ '--inset': '-5px', '--corner-len': '10px' }}>
                       <span className="relative block overflow-hidden rounded-[4px] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-white/25">

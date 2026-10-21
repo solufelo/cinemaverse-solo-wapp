@@ -57,7 +57,7 @@ function StatusStrip({ sandbox, guest }) {
           <p className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 bg-plasma" aria-hidden="true" />
             <span>
-              <span className="text-slate-200">Guest</span> · your log is public and expires in 24 h ·{' '}
+              <span className="text-slate-200">Guest</span> · <span className="hidden sm:inline">your log is public and </span>expires in 24 h ·{' '}
               <Link to="/signup" className="text-neon underline-offset-4 hover:underline">
                 Keep it
               </Link>
