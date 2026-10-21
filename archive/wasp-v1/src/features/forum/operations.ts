@@ -28,7 +28,7 @@ export const getDiscussion: GetDiscussion<{ tmdbId: number; mediaType: 'MOVIE' |
   if (!discussion) {
     // Fetch movie/TV show details from TMDB
     const tmdbResponse = await fetch(
-      `https://api.themoviedb.org/3/${mediaType === 'MOVIE' ? 'movie' : 'tv'}/${tmdbId}?api_key=9b0eaa970893512ec6b66c8add587944`
+      `https://api.themoviedb.org/3/${mediaType === 'MOVIE' ? 'movie' : 'tv'}/${tmdbId}?api_key=REDACTED_TMDB_KEY`
     );
     
     if (!tmdbResponse.ok) {

@@ -46,8 +46,8 @@ export default function DiscoverPage() {
 
         // Fetch trending movies and TV shows
         const [moviesResponse, tvResponse] = await Promise.all([
-          fetch('https://api.themoviedb.org/3/trending/movie/week?api_key=9b0eaa970893512ec6b66c8add587944'),
-          fetch('https://api.themoviedb.org/3/trending/tv/week?api_key=9b0eaa970893512ec6b66c8add587944')
+          fetch('https://api.themoviedb.org/3/trending/movie/week?api_key=REDACTED_TMDB_KEY'),
+          fetch('https://api.themoviedb.org/3/trending/tv/week?api_key=REDACTED_TMDB_KEY')
         ]);
 
         if (!moviesResponse.ok || !tvResponse.ok) {

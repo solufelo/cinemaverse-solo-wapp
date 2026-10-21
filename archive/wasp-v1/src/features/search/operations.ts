@@ -1,7 +1,7 @@
 import { HttpError } from 'wasp/server'
 import type { SearchTMDB, GetTrendingContent } from 'wasp/server/operations'
 
-const TMDB_API_KEY = '9b0eaa970893512ec6b66c8add587944'
+const TMDB_API_KEY = 'REDACTED_TMDB_KEY'
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 
 export interface TMDBMovie {

@@ -38,7 +38,7 @@ export default function TrailerModal({ isOpen, onClose, movieId, movieTitle, med
     setError(null);
     try {
       // Use the correct TMDB API key
-      const response = await fetch(`https://api.themoviedb.org/3/${mediaType}/${movieId}/videos?api_key=9b0eaa970893512ec6b66c8add587944`);
+      const response = await fetch(`https://api.themoviedb.org/3/${mediaType}/${movieId}/videos?api_key=REDACTED_TMDB_KEY`);
       const data = await response.json();
       
       if (!response.ok) {

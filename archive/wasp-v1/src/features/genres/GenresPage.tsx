@@ -35,7 +35,7 @@ export default function GenresPage() {
       setError(null);
       
       try {
-        const TMDB_API_KEY = '9b0eaa970893512ec6b66c8add587944';
+        const TMDB_API_KEY = 'REDACTED_TMDB_KEY';
         
         // Fetch movie genres
         const movieResponse = await fetch(
@@ -74,7 +74,7 @@ export default function GenresPage() {
       setError(null);
       
       try {
-        const TMDB_API_KEY = '9b0eaa970893512ec6b66c8add587944';
+        const TMDB_API_KEY = 'REDACTED_TMDB_KEY';
         const mediaType = selectedMediaType;
         const genreId = selectedGenre.id;
         
