@@ -2,7 +2,7 @@
 
 A social film log with a gamer HUD look. Search TMDB, mark a film **watching / completed / queued / dropped**, rate it out of ten, add a short take, and it lands on your watchlist, your public profile and the shared squad feed. "For you" recommends what to watch next, using OpenRouter when a key is set and a built-in taste-match engine when it isn't.
 
-**Live (previous version):** [cinemaverse-solo.netlify.app](https://cinemaverse-solo.netlify.app). The `revamp` branch has not been deployed yet.
+**Live:** [cinemaverse-solo.netlify.app](https://cinemaverse-solo.netlify.app) (Netlify builds `main`).
 
 | Home | Feed | Public profile |
 |---|---|---|
