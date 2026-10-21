@@ -4,8 +4,10 @@ export default defineConfig({
   test: {
     include: ['tests/api/**/*.test.ts'],
     environment: 'node',
-    // Each file boots its own in-memory Postgres (PGlite); the first WASM compile takes a few seconds.
+    // Each file boots its own in-memory Postgres (PGlite). The WASM compile is CPU-heavy, so cap
+    // parallel files and allow slow boots on a busy machine.
+    maxWorkers: 3,
     testTimeout: 30_000,
-    hookTimeout: 60_000,
+    hookTimeout: 120_000,
   },
 })

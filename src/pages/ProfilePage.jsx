@@ -18,8 +18,13 @@ export function MyProfileRedirect() {
   return <Navigate to={user ? `/u/${user.username}` : '/login'} replace state={{ from: '/profile' }} />
 }
 
-export default function ProfilePage() {
+// Keyed by username so tab state resets when you jump from one profile to another.
+export default function ProfileRoute() {
   const { username } = useParams()
+  return <ProfilePage key={username} username={username} />
+}
+
+function ProfilePage({ username }) {
   const res = useApi(`/users/${encodeURIComponent(username)}`)
   const [shelf, setShelf] = useState('all')
 
